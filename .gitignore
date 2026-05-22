@@ -1,7 +1,7 @@
 # Binaries
 build/bin/
 /freemod
-/freetrainer
+/freemod-cli
 /cli
 /target
 

@@ -11,7 +11,7 @@ import (
 	"github.com/freemod/freemod/core/scanner"
 )
 
-const scanFile = "/tmp/freetrainer_scan.json"
+const scanFile = "/tmp/freemod_scan.json"
 
 type scanState struct {
 	PID       int      `json:"pid"`
@@ -20,30 +20,30 @@ type scanState struct {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `FreeTrainer CLI — Phase 2
+	fmt.Fprintf(os.Stderr, `FreeMod CLI
 
 Usage:
-  freetrainer list
+  freemod-cli list
       List all running processes.
 
-  freetrainer read <pid> <addr>
+  freemod-cli read <pid> <addr>
       Read the int32 value at the given address in the target process.
 
-  freetrainer write <pid> <addr> <value>
+  freemod-cli write <pid> <addr> <value>
       Write an int32 value to the given address in the target process.
 
-  freetrainer scan <pid> <value>
+  freemod-cli scan <pid> <value>
       Scan all readable memory of <pid> for int32 <value>.
       Results saved to %s for use with 'narrow'.
 
-  freetrainer narrow <pid> <value>
+  freemod-cli narrow <pid> <value>
       Filter the previous scan results to addresses whose value is now <value>.
 
 Examples:
-  freetrainer list
-  freetrainer scan   1234 100
-  freetrainer narrow 1234 99
-  freetrainer write  1234 0x1400010cef4 9999
+  freemod-cli list
+  freemod-cli scan   1234 100
+  freemod-cli narrow 1234 99
+  freemod-cli write  1234 0x1400010cef4 9999
 `, scanFile)
 	os.Exit(1)
 }
@@ -245,7 +245,7 @@ func main() {
 
 		if len(addrs) == 1 {
 			fmt.Printf("\nFound unique address: 0x%x\n", addrs[0])
-			fmt.Printf("Write with: freetrainer write %d 0x%x <value>\n", pid, addrs[0])
+			fmt.Printf("Write with: freemod-cli write %d 0x%x <value>\n", pid, addrs[0])
 		}
 
 	default:

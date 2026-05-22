@@ -103,7 +103,7 @@ func (a *App) startup(ctx context.Context) {
 
 // ── Trainer methods ───────────────────────────────────────────────────────────
 
-// userTrainerDir returns (and creates) ~/Library/Application Support/FreeTrainer/trainers/
+// userTrainerDir returns (and creates) ~/Library/Application Support/FreeMod/trainers/
 func userTrainerDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
