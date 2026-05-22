@@ -9,7 +9,9 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
+	goruntime "runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1134,6 +1136,17 @@ func parseHex(s string) (uintptr, error) {
 	clean := strings.TrimPrefix(strings.TrimPrefix(s, "0x"), "0X")
 	v, err := strconv.ParseUint(clean, 16, 64)
 	return uintptr(v), err
+}
+
+func (a *App) OpenFolder(path string) error {
+	switch goruntime.GOOS {
+	case "darwin":
+		return exec.Command("open", path).Start()
+	case "windows":
+		return exec.Command("explorer", path).Start()
+	default:
+		return exec.Command("xdg-open", path).Start()
+	}
 }
 
 func toScanResult(addrs []uintptr) ScanResult {

@@ -28,6 +28,8 @@ export function NarrowValue(arg1:number):Promise<main.ScanResult>;
 
 export function NarrowValueFloat(arg1:number):Promise<main.ScanResult>;
 
+export function OpenFolder(arg1:string):Promise<void>;
+
 export function PickTrainerDir():Promise<string>;
 
 export function ReadAllTypes(arg1:string):Promise<main.AllTypesResult>;

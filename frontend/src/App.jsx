@@ -22,13 +22,13 @@ import {
   StopTestFreeze,
   GetSettings,
   SaveSettings,
+  OpenFolder,
   PickTrainerDir,
   SetFullscreen,
   ScanValueFloat,
   NarrowValueFloat,
   WalkPointerChain,
 } from '../wailsjs/go/main/App'
-import { BrowserOpenURL } from '../wailsjs/runtime/runtime'
 
 // ── Error Boundary ────────────────────────────────────────────────────────────
 
@@ -318,7 +318,7 @@ function TrainerTab({ status, setStatus }) {
               title="Open trainer folder"
               onClick={async () => {
                 const dir = await UserTrainerDir()
-                BrowserOpenURL('file://' + dir)
+                OpenFolder(dir)
               }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

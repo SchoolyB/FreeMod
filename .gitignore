@@ -22,3 +22,6 @@ frontend/dist/
 # Editor
 .vscode/
 .idea/
+
+# Docs
+*.txt

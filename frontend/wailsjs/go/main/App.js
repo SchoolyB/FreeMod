@@ -54,6 +54,10 @@ export function NarrowValueFloat(arg1) {
   return window['go']['main']['App']['NarrowValueFloat'](arg1);
 }
 
+export function OpenFolder(arg1) {
+  return window['go']['main']['App']['OpenFolder'](arg1);
+}
+
 export function PickTrainerDir() {
   return window['go']['main']['App']['PickTrainerDir']();
 }
