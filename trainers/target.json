@@ -7,14 +7,14 @@
       "name": "Infinite Health",
       "description": "Locks health at 9999",
       "type": "int32",
-      "base_offset": "0x15c344",
+      "base_offset": "0x168e24",
       "value": 9999
     },
     {
       "name": "Set Health",
       "description": "Set health to any value",
       "type": "int32",
-      "base_offset": "0x15c344",
+      "base_offset": "0x168e24",
       "input": true
     }
   ]

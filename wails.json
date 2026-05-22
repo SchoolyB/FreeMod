@@ -6,6 +6,9 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "postBuildHooks": {
+    "*/*": "go build -o target github.com/freemod/freemod/cmd/target"
+  },
   "author": {
     "name": "FreeMod",
     "email": ""

@@ -1,10 +1,10 @@
 export namespace main {
 	
 	export class CheatState {
-	    name: string;
-	    description: string;
-	    enabled: boolean;
-	    input: boolean;
+	    Name: string;
+	    Description: string;
+	    Enabled: boolean;
+	    Input: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new CheatState(source);
@@ -12,15 +12,15 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.enabled = source["enabled"];
-	        this.input = source["input"];
+	        this.Name = source["Name"];
+	        this.Description = source["Description"];
+	        this.Enabled = source["Enabled"];
+	        this.Input = source["Input"];
 	    }
 	}
 	export class ProcessInfo {
-	    pid: number;
-	    name: string;
+	    PID: number;
+	    Name: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProcessInfo(source);
@@ -28,13 +28,13 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.pid = source["pid"];
-	        this.name = source["name"];
+	        this.PID = source["PID"];
+	        this.Name = source["Name"];
 	    }
 	}
 	export class ScanResult {
-	    addresses: string[];
-	    count: number;
+	    Addresses: string[];
+	    Count: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ScanResult(source);
@@ -42,17 +42,17 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.addresses = source["addresses"];
-	        this.count = source["count"];
+	        this.Addresses = source["Addresses"];
+	        this.Count = source["Count"];
 	    }
 	}
 	export class TrainerStatus {
-	    game: string;
-	    exe: string;
-	    version: string;
-	    pid: number;
-	    connected: boolean;
-	    cheats: CheatState[];
+	    Game: string;
+	    Exe: string;
+	    Version: string;
+	    PID: number;
+	    Connected: boolean;
+	    Cheats: CheatState[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TrainerStatus(source);
@@ -60,12 +60,12 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.game = source["game"];
-	        this.exe = source["exe"];
-	        this.version = source["version"];
-	        this.pid = source["pid"];
-	        this.connected = source["connected"];
-	        this.cheats = this.convertValues(source["cheats"], CheatState);
+	        this.Game = source["Game"];
+	        this.Exe = source["Exe"];
+	        this.Version = source["Version"];
+	        this.PID = source["PID"];
+	        this.Connected = source["Connected"];
+	        this.Cheats = this.convertValues(source["Cheats"], CheatState);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -87,10 +87,10 @@ export namespace main {
 		}
 	}
 	export class TrainerSummary {
-	    filename: string;
-	    game: string;
-	    exe: string;
-	    version: string;
+	    Filename: string;
+	    Game: string;
+	    Exe: string;
+	    Version: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TrainerSummary(source);
@@ -98,10 +98,10 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.filename = source["filename"];
-	        this.game = source["game"];
-	        this.exe = source["exe"];
-	        this.version = source["version"];
+	        this.Filename = source["Filename"];
+	        this.Game = source["Game"];
+	        this.Exe = source["Exe"];
+	        this.Version = source["Version"];
 	    }
 	}
 
