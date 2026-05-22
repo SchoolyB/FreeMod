@@ -27,11 +27,13 @@ It is **not** an anti-cheat bypass. Single-player only.
 ```bash
 git clone https://github.com/freemod/freemod
 cd freemod
-wails build
+make build
 ```
 
-The built app lands at `build/bin/freemod.app`. `wails build` also builds a
-demo process at `build/bin/target` (see [Try the demo](#try-the-demo)).
+`make build` compiles the app to `build/bin/freemod.app`, builds a demo process
+at `build/bin/target` (see [Try the demo](#try-the-demo)), and code-signs the
+app so it can read game memory without root. It wraps `wails build` — run
+either. `make help` lists all targets.
 
 ---
 
@@ -43,8 +45,8 @@ process (`build/bin/target`) — so you can see a cheat work without a real game
 In two terminals:
 
 ```bash
-./build/bin/target               # terminal 1 — the process to cheat on
-sudo open build/bin/freemod.app  # terminal 2 — FreeMod (needs root)
+./build/bin/target          # terminal 1 — the process to cheat on
+open build/bin/freemod.app  # terminal 2 — FreeMod
 ```
 
 In FreeMod: select **FreeMod Demo Target**, wait ~2s for it to auto-connect,
@@ -57,11 +59,14 @@ then toggle **Infinite Health** — `health` in terminal 1 locks at 9999.
 
 ## Usage
 
-FreeMod needs root to read and write another process's memory.
-
 ```bash
-sudo open build/bin/freemod.app
+open build/bin/freemod.app
 ```
+
+No `sudo`: `make build` code-signs FreeMod with the `com.apple.security.cs.debugger`
+entitlement — the same one `lldb` uses — so it reads and writes process memory
+without root. It can only touch processes **you** own (your single-player games),
+never another user's or the system's.
 
 ### Trainers tab
 
@@ -118,43 +123,26 @@ Once you have a stable address or pointer chain, add it to a trainer JSON.
 
 ## Development
 
-Developing against the demo target uses **two terminals**: one runs the demo
-process you cheat on, the other runs FreeMod with live reload.
-
-**Terminal 1 — the demo target.** `wails dev` does **not** run build hooks, so
-build the demo process yourself once, then run it (no `sudo` — it's the target,
-not FreeMod):
+The demo target is a separate process FreeMod connects to, so iterating uses
+two terminals. Build once so `build/bin/target` exists:
 
 ```bash
-go build -o build/bin/target ./cmd/target
-./build/bin/target
+make build
 ```
 
-Leave it running; it prints `health` once a second.
-
-**Terminal 2 — FreeMod.** Run `wails dev` with `sudo` — reading another
-process's memory needs root, and without it Connect fails with
-`task_for_pid … kern_return 5`:
+Then run, in two terminals:
 
 ```bash
-sudo wails dev   # live reload; opens devtools with Cmd+Option+I
+./build/bin/target   # terminal 1 — leave running; prints `health` each second
+make dev             # terminal 2 — live reload, devtools with Cmd+Option+I
 ```
 
-With both running, select **FreeMod Demo Target** in the GUI — it auto-connects
-within ~2s — and toggle **Infinite Health**; Terminal 1 flips to `health = 9999`.
+In the GUI, select **FreeMod Demo Target** — it connects on the spot — and
+toggle **Infinite Health**; terminal 1 flips to `health = 9999`.
 
-> **Why two terminals / why sudo:** the demo target is a separate program —
-> FreeMod connects *to* it. The target only inspects its *own* memory, so it
-> needs no privileges; FreeMod reads *another* process, which is root-only on
-> macOS. `wails dev` only launches FreeMod, never the target.
-
-On startup `target` prints a `Static offset` — the value `target.json` puts in
-`base_offset`.
-
-> If toggling **Infinite Health** doesn't move `health`, the printed `Static
-> offset` no longer matches `base_offset` in `trainers/target.json` (it can
-> shift when the demo is rebuilt with a different Go toolchain) — update the
-> JSON to match.
+> `target` prints a `Static offset` on startup — the value `target.json` uses
+> as `base_offset`. If toggling doesn't move `health`, that offset no longer
+> matches `trainers/target.json`; update the JSON to match.
 
 ---
 
