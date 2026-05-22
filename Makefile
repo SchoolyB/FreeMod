@@ -16,9 +16,11 @@ build:
 dev:
 	wails dev
 
-## demo: build only the demo process
+## demo: build and run the demo process (kills any existing instance first)
 demo:
+	@pkill -x freemod-demo 2>/dev/null || true
 	go build -o build/bin/freemod-demo ./cmd/target
+	build/bin/freemod-demo
 
 ## run: launch the built app
 run:

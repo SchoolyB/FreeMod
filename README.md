@@ -42,7 +42,7 @@ In two terminals:
 
 ```bash
 # terminal 1
-build/bin/freemod-demo
+make demo
 
 # terminal 2
 make dev
@@ -117,9 +117,9 @@ Once you have a stable address or pointer chain, add it to a trainer JSON.
 ## Development
 
 ```bash
-make build           # build app + demo process
-build/bin/freemod-demo  # terminal 1 — leave running; prints health each second
-make dev             # terminal 2 — live reload
+make build  # build app + demo process
+make demo   # terminal 1 — kills any stale instance, starts fresh
+make dev    # terminal 2 — live reload
 ```
 
 In the GUI, select **FreeMod Demo Target** — it connects on the spot — and toggle **Infinite Health**; terminal 1 flips to `health = 9999`.

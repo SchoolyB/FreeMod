@@ -8,8 +8,6 @@ export function AttachedPID():Promise<number>;
 
 export function ConnectTrainer():Promise<main.TrainerStatus>;
 
-export function DebugTrainerState():Promise<string>;
-
 export function DisconnectTrainer():Promise<main.TrainerStatus>;
 
 export function GetModuleBase(arg1:number):Promise<string>;
