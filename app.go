@@ -338,8 +338,6 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 		return TrainerStatus{}, fmt.Errorf("address not resolved for %q", cheat.Name)
 	}
 
-	// fmt.Printf("[toggle] PID=%d base=0x%x addr=0x%x enable=%v\n", a.activePID, a.activeModBase, addr, enable)
-
 	if enable && !state.enabled {
 		size := cheatTypeSize(cheat.Type)
 		// Read and save original bytes.
@@ -393,22 +391,6 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 	}
 
 	return a.buildStatusLocked(), nil
-}
-
-// DebugTrainerState returns a human-readable dump of the current trainer state.
-// Used to diagnose address resolution issues.
-func (a *App) DebugTrainerState() string {
-	a.trainerMu.Lock()
-	defer a.trainerMu.Unlock()
-	if a.activeTrainer == nil {
-		return "no trainer loaded"
-	}
-	lines := fmt.Sprintf("PID=%d  base=0x%x\n", a.activePID, a.activeModBase)
-	for i, c := range a.activeTrainer.Cheats {
-		lines += fmt.Sprintf("  cheat[%d] %q  base_offset=%s  resolved=0x%x\n",
-			i, c.Name, c.BaseOffset, a.cheatStates[i].addr)
-	}
-	return lines
 }
 
 // GetTrainerStatus returns the current trainer status without changing anything.

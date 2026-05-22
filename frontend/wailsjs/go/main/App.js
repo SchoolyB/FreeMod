@@ -14,10 +14,6 @@ export function ConnectTrainer() {
   return window['go']['main']['App']['ConnectTrainer']();
 }
 
-export function DebugTrainerState() {
-  return window['go']['main']['App']['DebugTrainerState']();
-}
-
 export function DisconnectTrainer() {
   return window['go']['main']['App']['DisconnectTrainer']();
 }

@@ -472,7 +472,12 @@ function DevModeTab() {
               const addr = BigInt(addresses[0])
               const base = BigInt(moduleBase)
               const offset = '0x' + (addr - base).toString(16)
-              return <div className="dev-offset-hint">base_offset: <code>{offset}</code></div>
+              return (
+                <div className="dev-offset-hint">
+                  base_offset: <code>{offset}</code>
+                  <button className="copy-btn" onClick={() => navigator.clipboard.writeText(offset)}>Copy</button>
+                </div>
+              )
             })()}
             <div className="dev-addr-list">
               {(addresses.length > 200 ? addresses.slice(0, 200) : addresses).map(addr => (
