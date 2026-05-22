@@ -1,0 +1,22 @@
+{
+  "game": "FreeMod Demo Target",
+  "exe": "freemod-demo",
+  "version": "1.0",
+  "image": "target.png",
+  "cheats": [
+    {
+      "name": "Infinite Health",
+      "description": "Locks health at 9999",
+      "type": "int32",
+      "base_offset": "0x000000",
+      "value": 9999
+    },
+    {
+      "name": "Set Health",
+      "description": "Set health to any value",
+      "type": "int32",
+      "base_offset": "0x000000",
+      "input": true
+    }
+  ]
+}

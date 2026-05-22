@@ -4,6 +4,7 @@
 
 ## build: compile the signed app + demo target into build/bin, auto-patch target.json
 build:
+	@test -f trainers/target.json || cp trainers/target.json.example trainers/target.json
 	go build -o build/bin/freemod-demo ./cmd/target
 	@addr=$$(go tool nm build/bin/freemod-demo | awk '/main\.health$$/{print $$1}'); \
 	offset=$$(printf "0x%x" $$(( 0x$$addr - 0x100000000 ))); \
