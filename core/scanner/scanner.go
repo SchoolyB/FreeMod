@@ -4,9 +4,15 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sort"
 
 	"github.com/freemod/freemod/core/memory"
 )
+
+// maxRegionSize is the largest single region we will read in one scan pass.
+// Regions larger than this (e.g. JVM heap, graphics buffers) are skipped —
+// game state values are never stored in multi-hundred-MB monolithic blobs.
+const maxRegionSize = 64 * 1024 * 1024 // 64 MB
 
 // ScanForInt scans all readable memory regions of the process for the given
 // int32 value and returns the addresses where it is found.
@@ -22,7 +28,7 @@ func ScanForInt(mem memory.Memory, pid int, value int32) ([]uintptr, error) {
 	var matches []uintptr
 
 	for _, region := range regions {
-		if region.Size < 4 {
+		if region.Size < 4 || region.Size > maxRegionSize {
 			continue
 		}
 
@@ -45,17 +51,55 @@ func ScanForInt(mem memory.Memory, pid int, value int32) ([]uintptr, error) {
 	return matches, nil
 }
 
+// batchRead reads values at a list of addresses using as few syscalls as possible.
+// It sorts addresses and groups ones within batchSpan of each other into a single
+// region read, then extracts values from the buffer.
+const batchSpan = 4096 // group addresses within 4 KB into one read
+
+func batchReadInt32(mem memory.Memory, pid int, addrs []uintptr) map[uintptr]int32 {
+	if len(addrs) == 0 {
+		return nil
+	}
+	sorted := make([]uintptr, len(addrs))
+	copy(sorted, addrs)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
+
+	out := make(map[uintptr]int32, len(addrs))
+	i := 0
+	for i < len(sorted) {
+		base := sorted[i]
+		end := base + 4
+		j := i + 1
+		for j < len(sorted) && sorted[j]+4-base <= batchSpan {
+			if sorted[j]+4 > end {
+				end = sorted[j] + 4
+			}
+			j++
+		}
+		size := int(end - base)
+		data, err := mem.ReadBytes(pid, base, size)
+		if err != nil {
+			i = j
+			continue
+		}
+		for k := i; k < j; k++ {
+			off := int(sorted[k] - base)
+			if off+4 <= len(data) {
+				out[sorted[k]] = int32(binary.LittleEndian.Uint32(data[off : off+4]))
+			}
+		}
+		i = j
+	}
+	return out
+}
+
 // NarrowScan filters a previous address list to only those whose current
 // int32 value matches newValue.
 func NarrowScan(mem memory.Memory, pid int, addrs []uintptr, newValue int32) ([]uintptr, error) {
+	vals := batchReadInt32(mem, pid, addrs)
 	var matches []uintptr
 	for _, addr := range addrs {
-		val, err := mem.ReadInt(pid, addr)
-		if err != nil {
-			// Address may have become invalid; drop it.
-			continue
-		}
-		if val == newValue {
+		if v, ok := vals[addr]; ok && v == newValue {
 			matches = append(matches, addr)
 		}
 	}
@@ -74,7 +118,7 @@ func ScanForFloat32(mem memory.Memory, pid int, value float32) ([]uintptr, error
 
 	var matches []uintptr
 	for _, region := range regions {
-		if region.Size < 4 {
+		if region.Size < 4 || region.Size > maxRegionSize {
 			continue
 		}
 		data, err := mem.ReadBytes(pid, region.Start, int(region.Size))
@@ -160,21 +204,19 @@ func NarrowFloat32ByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals [
 	return survivors, newVals, nil
 }
 
-// ReadValuesAtAddrs reads the current int32 value at each address, silently
-// dropping any that have become unreadable. Returns parallel slices of the
-// surviving addresses and their values.
+// ReadValuesAtAddrs reads the current int32 value at each address using batched
+// reads. Returns parallel slices of surviving addresses and their values.
 func ReadValuesAtAddrs(mem memory.Memory, pid int, addrs []uintptr) ([]uintptr, []int32) {
-	out := make([]uintptr, 0, len(addrs))
-	vals := make([]int32, 0, len(addrs))
+	vals := batchReadInt32(mem, pid, addrs)
+	out := make([]uintptr, 0, len(vals))
+	vs := make([]int32, 0, len(vals))
 	for _, addr := range addrs {
-		v, err := mem.ReadInt(pid, addr)
-		if err != nil {
-			continue
+		if v, ok := vals[addr]; ok {
+			out = append(out, addr)
+			vs = append(vs, v)
 		}
-		out = append(out, addr)
-		vals = append(vals, v)
 	}
-	return out, vals
+	return out, vs
 }
 
 // NarrowByMode filters a previous address list by comparing each address's
@@ -185,29 +227,30 @@ func NarrowByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals []int32,
 	if len(addrs) != len(prevVals) {
 		return nil, nil, fmt.Errorf("address/value slice length mismatch")
 	}
+	cur := batchReadInt32(mem, pid, addrs)
 	var survivors []uintptr
 	var newVals []int32
 	for i, addr := range addrs {
-		cur, err := mem.ReadInt(pid, addr)
-		if err != nil {
+		v, ok := cur[addr]
+		if !ok {
 			continue
 		}
 		var keep bool
 		switch mode {
 		case "increased":
-			keep = cur > prevVals[i]
+			keep = v > prevVals[i]
 		case "decreased":
-			keep = cur < prevVals[i]
+			keep = v < prevVals[i]
 		case "changed":
-			keep = cur != prevVals[i]
+			keep = v != prevVals[i]
 		case "unchanged":
-			keep = cur == prevVals[i]
+			keep = v == prevVals[i]
 		default:
 			return nil, nil, fmt.Errorf("unknown scan mode %q", mode)
 		}
 		if keep {
 			survivors = append(survivors, addr)
-			newVals = append(newVals, cur)
+			newVals = append(newVals, v)
 		}
 	}
 	return survivors, newVals, nil
