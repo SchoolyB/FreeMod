@@ -14,8 +14,12 @@ import {
   GetModuleBase,
   ScanValue,
   NarrowValue,
+  ScanByMode,
   WriteValue,
   ReadValue,
+  ReadAllTypes,
+  TestFreeze,
+  StopTestFreeze,
   GetSettings,
   SaveSettings,
   PickTrainerDir,
@@ -344,6 +348,17 @@ function TrainerTab({ status, setStatus }) {
 
 // ── DEV MODE TAB ──────────────────────────────────────────────────────────────
 
+function getScanHint(history, count, attached) {
+  if (!attached) return 'Select a process from the left to begin.'
+  if (history.length === 0) return 'Enter the current in-game value and click Scan.'
+  if (count > 10000) return `${count.toLocaleString()} candidates — way too many. Change the value in-game, then use Narrow or a mode button.`
+  if (count > 500) return `${count.toLocaleString()} candidates. Change the value in-game, then narrow it down.`
+  if (count > 50) return `Getting closer — ${count} candidates. Keep changing the value in-game and narrowing.`
+  if (count > 1) return `Almost there — ${count} candidates left. One more change should isolate it.`
+  if (count === 1) return '✓ Found it! Verify with Test Freeze, then copy the trainer entry.'
+  return 'No matches. The value type might be wrong (try float32 in the editor), or start a fresh scan.'
+}
+
 function DevModeTab() {
   const [showWarning, setShowWarning] = useState(() => localStorage.getItem(WARN_DISMISSED_KEY) !== 'true')
   const [neverShow, setNeverShow] = useState(false)
@@ -353,6 +368,7 @@ function DevModeTab() {
     setShowWarning(false)
   }
 
+  // Process state
   const [attachedPID, setAttachedPID] = useState(0)
   const [attachedName, setAttachedName] = useState('')
   const [moduleBase, setModuleBase] = useState('')
@@ -361,18 +377,33 @@ function DevModeTab() {
   const [loadingProcs, setLoadingProcs] = useState(false)
   const [procErr, setProcErr] = useState(null)
 
+  // Scanner state
   const [addresses, setAddresses] = useState([])
   const [scanVal, setScanVal] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [scanHistory, setScanHistory] = useState([]) // timeline entries
+  const [selectedAddr, setSelectedAddr] = useState(null)
 
+  // Address inspector state (multi-type + test freeze)
+  const [allTypes, setAllTypes] = useState(null)
+  const [freezeVal, setFreezeVal] = useState('')
+  const [freezeActive, setFreezeActive] = useState(false)
+  const [freezeMsg, setFreezeMsg] = useState(null)
+
+  // Add-to-trainer panel (shown when 1 result)
+  const [trainerName, setTrainerName] = useState('')
+  const [trainerType, setTrainerType] = useState('int32')
+  const [trainerValue, setTrainerValue] = useState('9999')
+  const [copiedJson, setCopiedJson] = useState(false)
+
+  // Manual editor state
   const [writeAddr, setWriteAddr] = useState('')
   const [writeVal, setWriteVal] = useState('')
   const [readResult, setReadResult] = useState(null)
   const [writeMsg, setWriteMsg] = useState(null)
 
-  const [status, setStatus] = useState(null)
-
-  const showStatus = (text, isError = false) => setStatus({ text, isError })
+  const [statusMsg, setStatusMsg] = useState(null)
+  const showStatus = (text, isError = false) => setStatusMsg({ text, isError })
 
   const refreshProcs = useCallback(async () => {
     setLoadingProcs(true)
@@ -388,11 +419,17 @@ function DevModeTab() {
   }, [])
 
   const attach = useCallback(async (pid, name) => {
+    // Stop any running test freeze before switching processes
+    await StopTestFreeze().catch(() => {})
+    setFreezeActive(false)
     try {
       await AttachProcess(pid)
       setAttachedPID(pid)
       setAttachedName(name)
       setAddresses([])
+      setScanHistory([])
+      setSelectedAddr(null)
+      setAllTypes(null)
       setModuleBase('')
       showStatus(`Attached to ${name} (PID ${pid})`)
       const base = await GetModuleBase(pid)
@@ -402,21 +439,109 @@ function DevModeTab() {
     }
   }, [])
 
-  const doScan = useCallback(async (narrow) => {
+  const addHistory = (type, query, mode, count) => {
+    setScanHistory(prev => [...prev, { id: prev.length + 1, type, query, mode, count }])
+  }
+
+  const doScan = useCallback(async () => {
     const num = parseInt(scanVal, 10)
     if (isNaN(num)) return
     setScanning(true)
     try {
-      const fn = narrow ? NarrowValue : ScanValue
-      const r = await fn(num)
+      const r = await ScanValue(num)
       setAddresses(r.Addresses || [])
-      showStatus(`${narrow ? 'Narrowed' : 'Scanned'} — ${r.Count} match${r.Count === 1 ? '' : 'es'}`)
+      setSelectedAddr(null)
+      setAllTypes(null)
+      setScanHistory([]) // fresh scan resets history
+      addHistory('initial', num, null, r.Count)
+      showStatus(`Scanned — ${r.Count} match${r.Count === 1 ? '' : 'es'}`)
     } catch (e) {
       showStatus(String(e), true)
     } finally {
       setScanning(false)
     }
   }, [scanVal])
+
+  const doNarrow = useCallback(async () => {
+    const num = parseInt(scanVal, 10)
+    if (isNaN(num)) return
+    setScanning(true)
+    try {
+      const r = await NarrowValue(num)
+      setAddresses(r.Addresses || [])
+      setSelectedAddr(null)
+      setAllTypes(null)
+      addHistory('exact', num, null, r.Count)
+      showStatus(`Narrowed — ${r.Count} match${r.Count === 1 ? '' : 'es'}`)
+    } catch (e) {
+      showStatus(String(e), true)
+    } finally {
+      setScanning(false)
+    }
+  }, [scanVal])
+
+  const doModeScan = useCallback(async (mode) => {
+    setScanning(true)
+    try {
+      const r = await ScanByMode(mode)
+      setAddresses(r.Addresses || [])
+      setSelectedAddr(null)
+      setAllTypes(null)
+      addHistory('mode', null, mode, r.Count)
+      showStatus(`${mode.charAt(0).toUpperCase() + mode.slice(1)} — ${r.Count} match${r.Count === 1 ? '' : 'es'}`)
+    } catch (e) {
+      showStatus(String(e), true)
+    } finally {
+      setScanning(false)
+    }
+  }, [])
+
+  const selectAddr = useCallback(async (addr) => {
+    setSelectedAddr(addr)
+    setWriteAddr(addr)
+    setAllTypes(null)
+    setFreezeMsg(null)
+    try {
+      const t = await ReadAllTypes(addr)
+      setAllTypes(t)
+      setFreezeVal(String(t.Int32))
+    } catch (_) {}
+  }, [])
+
+  const startFreeze = useCallback(async () => {
+    const num = parseInt(freezeVal, 10)
+    if (isNaN(num) || !selectedAddr) return
+    try {
+      await TestFreeze(selectedAddr, num)
+      setFreezeActive(true)
+      setFreezeMsg({ text: `Freezing ${selectedAddr} at ${num}`, err: false })
+    } catch (e) {
+      setFreezeMsg({ text: String(e), err: true })
+    }
+  }, [selectedAddr, freezeVal])
+
+  const stopFreeze = useCallback(async () => {
+    await StopTestFreeze().catch(() => {})
+    setFreezeActive(false)
+    setFreezeMsg({ text: 'Freeze stopped — value restored to game control.', err: false })
+  }, [])
+
+  const copyTrainerJson = useCallback(() => {
+    if (!addresses[0] || !moduleBase) return
+    const addr = BigInt(addresses[0])
+    const base = BigInt(moduleBase)
+    const offset = '0x' + (addr - base).toString(16)
+    const snippet = JSON.stringify({
+      name: trainerName || 'My Cheat',
+      description: '',
+      type: trainerType,
+      base_offset: offset,
+      value: parseFloat(trainerValue) || 0,
+    }, null, 2)
+    navigator.clipboard.writeText(snippet)
+    setCopiedJson(true)
+    setTimeout(() => setCopiedJson(false), 2000)
+  }, [addresses, moduleBase, trainerName, trainerType, trainerValue])
 
   const doRead = useCallback(async () => {
     try {
@@ -444,9 +569,20 @@ function DevModeTab() {
     String(p.PID).includes(filter)
   )
 
-  useEffect(() => {
-    refreshProcs()
-  }, [])
+  // Compute offset when exactly 1 address found
+  const singleOffset = addresses.length === 1 && moduleBase ? (() => {
+    try {
+      return '0x' + (BigInt(addresses[0]) - BigInt(moduleBase)).toString(16)
+    } catch (_) { return null }
+  })() : null
+
+  useEffect(() => { refreshProcs() }, [])
+
+  // Clean up test freeze on unmount
+  useEffect(() => () => { StopTestFreeze().catch(() => {}) }, [])
+
+  const hint = getScanHint(scanHistory, addresses.length, attachedPID > 0)
+  const hasHistory = scanHistory.length > 0
 
   return (
     <div className="dev-tab">
@@ -474,49 +610,44 @@ function DevModeTab() {
         </div>
       )}
 
-      {/* Dynamic Status Bar */}
-      {status && (
-        <div className={`dev-status ${status.isError ? 'error' : 'ok'}`}>
+      {/* Status bar */}
+      {statusMsg && (
+        <div className={`dev-status ${statusMsg.isError ? 'error' : 'ok'}`}>
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            {status.isError ? (
-              <>
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-              </>
-            ) : (
-              <>
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </>
-            )}
+            {statusMsg.isError
+              ? <><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>
+              : <polyline points="20 6 9 17 4 12"/>}
           </svg>
-          {status.text}
+          {statusMsg.text}
         </div>
       )}
 
-      {/* Multi-Panel Dashboard Layout */}
       <div className="dev-layout">
-        {/* Process Panel */}
+        {/* ── Left: Process Panel ── */}
         <section className="dev-card dev-card-process">
           <div className="dev-card-header">
-            <span>Process Selector</span>
+            <span>Process</span>
             <button onClick={refreshProcs} disabled={loadingProcs}>
               {loadingProcs ? <Spinner /> : 'Refresh'}
             </button>
           </div>
           <input
             className="dev-filter"
-            placeholder="Search processes..."
+            placeholder="Search..."
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
-          {moduleBase && (
-            <div className="dev-module-base">Base Address: <code>{moduleBase}</code></div>
+          {attachedPID > 0 && (
+            <div className="dev-attached-badge">
+              <span className="pulse-dot" />
+              {attachedName} · PID {attachedPID}
+              {moduleBase && <span className="dev-base-tag">{moduleBase}</span>}
+            </div>
           )}
           {procErr && <div className="panel-error">{procErr}</div>}
           <div className="dev-proc-list">
             {filtered.length === 0 && !procErr && (
-              <div className="empty">Click Refresh to load list</div>
+              <div className="empty">Click Refresh to load</div>
             )}
             {filtered.map(p => (
               <div
@@ -531,60 +662,211 @@ function DevModeTab() {
           </div>
         </section>
 
-        {/* Dynamic Scan & Read/Write Console */}
-        <div className="dev-right">
-          {/* Memory Scanner Panel */}
-          <section className="dev-card dev-card-scanner">
-            <div className="dev-card-header"><span>Memory Scanner</span></div>
-            <div className="dev-row">
-              <input
-                type="number"
-                placeholder="Target value (int32)..."
-                value={scanVal}
-                onChange={e => setScanVal(e.target.value)}
-                disabled={!attachedPID || scanning}
-              />
-              <button onClick={() => doScan(false)} disabled={!attachedPID || scanning || !scanVal}>
-                {scanning ? <Spinner /> : 'Scan'}
+        {/* ── Center: Scanner Panel ── */}
+        <section className="dev-card dev-card-scanner">
+          <div className="dev-card-header"><span>Memory Scanner</span></div>
+
+          {/* Contextual hint */}
+          <div className={`scan-hint ${addresses.length === 1 ? 'success' : ''}`}>
+            {hint}
+          </div>
+
+          {/* Scan controls */}
+          <div className="dev-row">
+            <input
+              type="number"
+              placeholder="Known value (int32)..."
+              value={scanVal}
+              onChange={e => setScanVal(e.target.value)}
+              disabled={!attachedPID || scanning}
+              onKeyDown={e => e.key === 'Enter' && (hasHistory ? doNarrow() : doScan())}
+            />
+            <button
+              onClick={doScan}
+              disabled={!attachedPID || scanning || !scanVal}
+              title="Start a fresh scan for this value"
+            >
+              {scanning ? <Spinner /> : 'Scan'}
+            </button>
+            <button
+              onClick={doNarrow}
+              disabled={!attachedPID || scanning || !scanVal || !hasHistory}
+              className="secondary"
+              title="Narrow to addresses that now equal this value"
+            >
+              Narrow
+            </button>
+          </div>
+
+          {/* Mode scan buttons */}
+          <div className="scan-mode-row">
+            <span className="scan-mode-label">Mode scan:</span>
+            {['increased', 'decreased', 'changed', 'unchanged'].map(mode => (
+              <button
+                key={mode}
+                className={`scan-mode-btn scan-mode-${mode}`}
+                onClick={() => doModeScan(mode)}
+                disabled={!attachedPID || scanning || !hasHistory}
+                title={`Keep addresses whose value has ${mode} since the last scan`}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
               </button>
-              <button onClick={() => doScan(true)} disabled={!attachedPID || scanning || !scanVal || !addresses.length} className="secondary">
-                Narrow
-              </button>
-            </div>
-            <div className="dev-results-hdr">
-              <span>
-                {addresses.length > 0
-                  ? `${addresses.length} address${addresses.length === 1 ? '' : 'es'} found${addresses.length > 200 ? ' (showing first 200)' : ''}`
-                  : 'Ready for scanning'}
-              </span>
-              {addresses.length === 1 && <span className="found-badge">Unique Offset Found!</span>}
-            </div>
-            {addresses.length === 1 && moduleBase && (() => {
-              const addr = BigInt(addresses[0])
-              const base = BigInt(moduleBase)
-              const offset = '0x' + (addr - base).toString(16)
-              return (
-                <div className="dev-offset-hint">
-                  <span>Relative Offset: <code>{offset}</code></span>
-                  <button className="copy-btn" onClick={() => navigator.clipboard.writeText(offset)}>Copy</button>
-                </div>
-              )
-            })()}
-            <div className="dev-addr-list">
-              {(addresses.length > 200 ? addresses.slice(0, 200) : addresses).map(addr => (
-                <div key={addr} className="dev-addr-row" onClick={() => setWriteAddr(addr)}>
-                  {addr}
+            ))}
+          </div>
+
+          {/* Scan history timeline */}
+          {hasHistory && (
+            <div className="scan-history">
+              {scanHistory.map((entry, i) => (
+                <div key={entry.id} className={`scan-history-entry ${i === scanHistory.length - 1 ? 'latest' : ''}`}>
+                  <span className="scan-history-step">{entry.id}</span>
+                  <span className="scan-history-desc">
+                    {entry.type === 'initial' && `Scan for ${entry.query}`}
+                    {entry.type === 'exact' && `Narrow → ${entry.query}`}
+                    {entry.type === 'mode' && entry.mode.charAt(0).toUpperCase() + entry.mode.slice(1)}
+                  </span>
+                  <span className={`scan-history-count ${entry.count <= 1 ? 'done' : ''}`}>
+                    {entry.count === 1 ? '✓ 1' : entry.count.toLocaleString()}
+                  </span>
                 </div>
               ))}
             </div>
-          </section>
+          )}
 
-          {/* Memory Modifier Panel */}
+          {/* Results */}
+          <div className="dev-results-hdr">
+            <span>
+              {hasHistory
+                ? `${addresses.length} address${addresses.length === 1 ? '' : 'es'}${addresses.length > 200 ? ' (first 200 shown)' : ''}`
+                : 'No scan yet'}
+            </span>
+            {addresses.length === 1 && <span className="found-badge">Found!</span>}
+          </div>
+
+          <div className="dev-addr-list">
+            {(addresses.length > 200 ? addresses.slice(0, 200) : addresses).map(addr => (
+              <div
+                key={addr}
+                className={`dev-addr-row ${addr === selectedAddr ? 'selected' : ''}`}
+                onClick={() => selectAddr(addr)}
+              >
+                {addr}
+                {addr === selectedAddr && <span className="addr-selected-tag">selected</span>}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Right: Inspector + Editor ── */}
+        <div className="dev-right">
+          {/* Address Inspector */}
+          {selectedAddr && (
+            <section className="dev-card dev-card-inspector">
+              <div className="dev-card-header"><span>Address Inspector</span></div>
+
+              <div className="inspector-addr"><code>{selectedAddr}</code></div>
+
+              {/* Multi-type value display */}
+              {allTypes && allTypes.Valid && (
+                <div className="inspector-types">
+                  <div className="inspector-type-row">
+                    <span className="type-tag">int32</span>
+                    <code>{allTypes.Int32}</code>
+                  </div>
+                  <div className="inspector-type-row">
+                    <span className="type-tag">float32</span>
+                    <code>{allTypes.Float32.toFixed(4)}</code>
+                  </div>
+                  <div className="inspector-type-row">
+                    <span className="type-tag">int64</span>
+                    <code>{allTypes.Int64}</code>
+                  </div>
+                </div>
+              )}
+
+              {/* Test freeze */}
+              <div className="inspector-freeze">
+                <span className="inspector-section-label">Test Freeze</span>
+                <div className="dev-row">
+                  <input
+                    type="number"
+                    placeholder="Freeze at value..."
+                    value={freezeVal}
+                    onChange={e => setFreezeVal(e.target.value)}
+                    disabled={freezeActive}
+                  />
+                  {!freezeActive ? (
+                    <button
+                      className="freeze-btn"
+                      onClick={startFreeze}
+                      disabled={!freezeVal}
+                    >
+                      Freeze
+                    </button>
+                  ) : (
+                    <button className="freeze-stop-btn" onClick={stopFreeze}>
+                      Stop
+                    </button>
+                  )}
+                </div>
+                {freezeActive && (
+                  <div className="freeze-active-indicator">
+                    <span className="pulse-dot green" /> Actively freezing
+                  </div>
+                )}
+                {freezeMsg && (
+                  <div className={`dev-write-msg ${freezeMsg.err ? 'error' : 'ok'}`}>
+                    {freezeMsg.text}
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {/* Add to Trainer panel — only when exactly 1 result */}
+          {addresses.length === 1 && singleOffset && (
+            <section className="dev-card dev-card-trainer-export">
+              <div className="dev-card-header"><span>Add to Trainer</span></div>
+              <div className="trainer-export-offset">
+                Offset: <code>{singleOffset}</code>
+                <button className="copy-btn" onClick={() => navigator.clipboard.writeText(singleOffset)}>Copy</button>
+              </div>
+              <div className="dev-row">
+                <input
+                  placeholder="Cheat name..."
+                  value={trainerName}
+                  onChange={e => setTrainerName(e.target.value)}
+                />
+                <select
+                  className="trainer-type-select"
+                  value={trainerType}
+                  onChange={e => setTrainerType(e.target.value)}
+                >
+                  <option value="int32">int32</option>
+                  <option value="float32">float32</option>
+                  <option value="int64">int64</option>
+                </select>
+              </div>
+              <div className="dev-row">
+                <input
+                  type="number"
+                  placeholder="Cheat value..."
+                  value={trainerValue}
+                  onChange={e => setTrainerValue(e.target.value)}
+                />
+                <button className={`copy-json-btn ${copiedJson ? 'copied' : ''}`} onClick={copyTrainerJson}>
+                  {copiedJson ? '✓ Copied!' : 'Copy JSON'}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* Memory Editor */}
           <section className="dev-card dev-card-writer">
             <div className="dev-card-header"><span>Memory Editor</span></div>
             <div className="dev-row">
               <input
-                placeholder="Target address (0x...)"
+                placeholder="Address (0x...)"
                 value={writeAddr}
                 onChange={e => { setWriteAddr(e.target.value); setReadResult(null) }}
                 disabled={!attachedPID}
@@ -605,7 +887,7 @@ function DevModeTab() {
                 disabled={!attachedPID}
               />
               <button onClick={doWrite} disabled={!attachedPID || !writeAddr || !writeVal} className="danger">
-                Write Value
+                Write
               </button>
             </div>
             {writeMsg && (

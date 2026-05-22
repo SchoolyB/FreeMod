@@ -54,6 +54,10 @@ export function PickTrainerDir() {
   return window['go']['main']['App']['PickTrainerDir']();
 }
 
+export function ReadAllTypes(arg1) {
+  return window['go']['main']['App']['ReadAllTypes'](arg1);
+}
+
 export function ReadValue(arg1) {
   return window['go']['main']['App']['ReadValue'](arg1);
 }
@@ -62,8 +66,20 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
+export function ScanByMode(arg1) {
+  return window['go']['main']['App']['ScanByMode'](arg1);
+}
+
 export function ScanValue(arg1) {
   return window['go']['main']['App']['ScanValue'](arg1);
+}
+
+export function StopTestFreeze() {
+  return window['go']['main']['App']['StopTestFreeze']();
+}
+
+export function TestFreeze(arg1, arg2) {
+  return window['go']['main']['App']['TestFreeze'](arg1, arg2);
 }
 
 export function ToggleCheat(arg1, arg2, arg3) {

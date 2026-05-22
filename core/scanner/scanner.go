@@ -61,6 +61,59 @@ func NarrowScan(mem memory.Memory, pid int, addrs []uintptr, newValue int32) ([]
 	return matches, nil
 }
 
+// ReadValuesAtAddrs reads the current int32 value at each address, silently
+// dropping any that have become unreadable. Returns parallel slices of the
+// surviving addresses and their values.
+func ReadValuesAtAddrs(mem memory.Memory, pid int, addrs []uintptr) ([]uintptr, []int32) {
+	out := make([]uintptr, 0, len(addrs))
+	vals := make([]int32, 0, len(addrs))
+	for _, addr := range addrs {
+		v, err := mem.ReadInt(pid, addr)
+		if err != nil {
+			continue
+		}
+		out = append(out, addr)
+		vals = append(vals, v)
+	}
+	return out, vals
+}
+
+// NarrowByMode filters a previous address list by comparing each address's
+// current int32 value against the previously recorded value. mode must be one
+// of: "increased", "decreased", "changed", "unchanged".
+// Returns the surviving addresses and their current values.
+func NarrowByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals []int32, mode string) ([]uintptr, []int32, error) {
+	if len(addrs) != len(prevVals) {
+		return nil, nil, fmt.Errorf("address/value slice length mismatch")
+	}
+	var survivors []uintptr
+	var newVals []int32
+	for i, addr := range addrs {
+		cur, err := mem.ReadInt(pid, addr)
+		if err != nil {
+			continue
+		}
+		var keep bool
+		switch mode {
+		case "increased":
+			keep = cur > prevVals[i]
+		case "decreased":
+			keep = cur < prevVals[i]
+		case "changed":
+			keep = cur != prevVals[i]
+		case "unchanged":
+			keep = cur == prevVals[i]
+		default:
+			return nil, nil, fmt.Errorf("unknown scan mode %q", mode)
+		}
+		if keep {
+			survivors = append(survivors, addr)
+			newVals = append(newVals, cur)
+		}
+	}
+	return survivors, newVals, nil
+}
+
 // FindModuleBase scans the process's readable regions for a Mach-O 64-bit
 // header (magic 0xFEEDFACF) at an address >= 0x100000000, which is the
 // default load address of the main executable on macOS arm64/amd64.

@@ -1,5 +1,23 @@
 export namespace main {
 	
+	export class AllTypesResult {
+	    Int32: number;
+	    Int64: number;
+	    Float32: number;
+	    Valid: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new AllTypesResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Int32 = source["Int32"];
+	        this.Int64 = source["Int64"];
+	        this.Float32 = source["Float32"];
+	        this.Valid = source["Valid"];
+	    }
+	}
 	export class CheatState {
 	    Name: string;
 	    Description: string;

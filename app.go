@@ -78,9 +78,11 @@ type App struct {
 	settings Settings
 
 	// dev-mode scanner state
-	devMu        sync.Mutex
-	devPID       int
-	devScanAddrs []uintptr
+	devMu          sync.Mutex
+	devPID         int
+	devScanAddrs   []uintptr
+	devScanPrevVals []int32         // parallel to devScanAddrs: value at last scan
+	devTestCancel  context.CancelFunc // non-nil while a test-freeze goroutine runs
 
 	// trainer state
 	trainerMu     sync.Mutex
@@ -560,8 +562,14 @@ func (a *App) ScanValue(val int32) (ScanResult, error) {
 	if err != nil {
 		return ScanResult{}, err
 	}
+	// All matches currently hold val — record as prevVals for mode scans.
+	prevVals := make([]int32, len(addrs))
+	for i := range prevVals {
+		prevVals[i] = val
+	}
 	a.devMu.Lock()
 	a.devScanAddrs = addrs
+	a.devScanPrevVals = prevVals
 	a.devMu.Unlock()
 	return toScanResult(addrs), nil
 }
@@ -582,10 +590,133 @@ func (a *App) NarrowValue(val int32) (ScanResult, error) {
 	if err != nil {
 		return ScanResult{}, err
 	}
+	prevVals := make([]int32, len(addrs))
+	for i := range prevVals {
+		prevVals[i] = val
+	}
 	a.devMu.Lock()
 	a.devScanAddrs = addrs
+	a.devScanPrevVals = prevVals
 	a.devMu.Unlock()
 	return toScanResult(addrs), nil
+}
+
+// AllTypesResult holds a memory address interpreted as every supported value type.
+type AllTypesResult struct {
+	Int32   int32   `json:"Int32"`
+	Int64   int64   `json:"Int64"`
+	Float32 float32 `json:"Float32"`
+	Valid   bool    `json:"Valid"`
+}
+
+// ScanByMode narrows the current address list using a relative comparison
+// against the previously recorded values. mode: "increased", "decreased",
+// "changed", or "unchanged".
+func (a *App) ScanByMode(mode string) (ScanResult, error) {
+	a.devMu.Lock()
+	pid := a.devPID
+	addrs := a.devScanAddrs
+	prevVals := a.devScanPrevVals
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return ScanResult{}, fmt.Errorf("no process attached")
+	}
+	if addrs == nil {
+		return ScanResult{}, fmt.Errorf("no previous scan to narrow")
+	}
+	if len(prevVals) != len(addrs) {
+		return ScanResult{}, fmt.Errorf("scan state inconsistent — run a fresh Scan first")
+	}
+
+	survivors, newVals, err := scanner.NarrowByMode(a.mem, pid, addrs, prevVals, mode)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	a.devMu.Lock()
+	a.devScanAddrs = survivors
+	a.devScanPrevVals = newVals
+	a.devMu.Unlock()
+	return toScanResult(survivors), nil
+}
+
+// TestFreeze starts writing val to addrHex every 100 ms so the user can verify
+// the address is correct without creating a trainer. Replaces any prior test freeze.
+func (a *App) TestFreeze(addrHex string, val int32) error {
+	a.devMu.Lock()
+	pid := a.devPID
+	if a.devTestCancel != nil {
+		a.devTestCancel()
+		a.devTestCancel = nil
+	}
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return fmt.Errorf("no process attached")
+	}
+	addr, err := parseHex(addrHex)
+	if err != nil {
+		return fmt.Errorf("invalid address: %w", err)
+	}
+
+	wb := make([]byte, 4)
+	binary.LittleEndian.PutUint32(wb, uint32(val))
+	_ = a.mem.WriteBytes(pid, addr, wb)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	a.devMu.Lock()
+	a.devTestCancel = cancel
+	a.devMu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_ = a.mem.WriteBytes(pid, addr, wb)
+			}
+		}
+	}()
+	return nil
+}
+
+// StopTestFreeze cancels the running test freeze goroutine, if any.
+func (a *App) StopTestFreeze() {
+	a.devMu.Lock()
+	if a.devTestCancel != nil {
+		a.devTestCancel()
+		a.devTestCancel = nil
+	}
+	a.devMu.Unlock()
+}
+
+// ReadAllTypes reads 8 bytes at addrHex and returns the value interpreted as
+// int32, float32, and int64 simultaneously.
+func (a *App) ReadAllTypes(addrHex string) (AllTypesResult, error) {
+	a.devMu.Lock()
+	pid := a.devPID
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return AllTypesResult{}, fmt.Errorf("no process attached")
+	}
+	addr, err := parseHex(addrHex)
+	if err != nil {
+		return AllTypesResult{}, fmt.Errorf("invalid address: %w", err)
+	}
+	data, err := a.mem.ReadBytes(pid, addr, 8)
+	if err != nil {
+		return AllTypesResult{}, err
+	}
+	return AllTypesResult{
+		Int32:   int32(binary.LittleEndian.Uint32(data[0:4])),
+		Float32: math.Float32frombits(binary.LittleEndian.Uint32(data[0:4])),
+		Int64:   int64(binary.LittleEndian.Uint64(data[0:8])),
+		Valid:   true,
+	}, nil
 }
 
 func (a *App) WriteValue(addrHex string, val int32) error {
