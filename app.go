@@ -65,8 +65,8 @@ const freezeInterval = 100 * time.Millisecond
 
 type activeCheat struct {
 	enabled      bool
-	restoreBytes []byte             // original bytes read before first enable
-	writeBytes   []byte             // bytes to write while frozen
+	restoreBytes []byte // original bytes read before first enable
+	writeBytes   []byte // bytes to write while frozen
 	addr         uintptr
 	cancelFreeze context.CancelFunc // non-nil while freeze goroutine is running
 }
@@ -140,9 +140,10 @@ func (a *App) ListTrainers() ([]TrainerSummary, error) {
 			byName[s.Filename] = i
 		}
 		for _, s := range userList {
-			s.Filename = "user:" + s.Filename // prefix so LoadTrainer knows the source
-			if idx, exists := byName[s.Filename]; exists {
-				builtIn[idx] = s // override
+			plain := s.Filename          // matches built-in filenames for dedup
+			s.Filename = "user:" + plain // prefix so LoadTrainer knows the source
+			if idx, exists := byName[plain]; exists {
+				builtIn[idx] = s // user trainer overrides the built-in of the same name
 			} else {
 				builtIn = append(builtIn, s)
 			}
