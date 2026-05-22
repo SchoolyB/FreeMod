@@ -23,6 +23,9 @@ export namespace main {
 	    Description: string;
 	    Enabled: boolean;
 	    Input: boolean;
+	    Behavior: string;
+	    Value: number;
+	    Trigger: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CheatState(source);
@@ -34,6 +37,9 @@ export namespace main {
 	        this.Description = source["Description"];
 	        this.Enabled = source["Enabled"];
 	        this.Input = source["Input"];
+	        this.Behavior = source["Behavior"];
+	        this.Value = source["Value"];
+	        this.Trigger = source["Trigger"];
 	    }
 	}
 	export class PointerChainStep {

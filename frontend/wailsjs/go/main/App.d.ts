@@ -48,7 +48,7 @@ export function StopTestFreeze():Promise<void>;
 
 export function TestFreeze(arg1:string,arg2:number):Promise<void>;
 
-export function ToggleCheat(arg1:number,arg2:boolean,arg3:number):Promise<main.TrainerStatus>;
+export function ToggleCheat(arg1:number,arg2:boolean,arg3:number,arg4:number):Promise<main.TrainerStatus>;
 
 export function TrainerImage(arg1:string):Promise<string>;
 

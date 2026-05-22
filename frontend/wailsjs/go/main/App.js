@@ -94,8 +94,8 @@ export function TestFreeze(arg1, arg2) {
   return window['go']['main']['App']['TestFreeze'](arg1, arg2);
 }
 
-export function ToggleCheat(arg1, arg2, arg3) {
-  return window['go']['main']['App']['ToggleCheat'](arg1, arg2, arg3);
+export function ToggleCheat(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ToggleCheat'](arg1, arg2, arg3, arg4);
 }
 
 export function TrainerImage(arg1) {

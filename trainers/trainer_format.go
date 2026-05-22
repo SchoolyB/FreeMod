@@ -14,10 +14,12 @@ type Cheat struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description"`
 	Type        string   `json:"type"`        // "int32" | "int64" | "float32"
+	Behavior    string   `json:"behavior"`    // "freeze" (default) | "clamp_min" | "clamp_max" | "threshold"
 	BaseOffset  string   `json:"base_offset"` // hex offset from main module base, e.g. "0x15c344"
 	Offsets     []string `json:"offsets"`     // optional pointer chain offsets, e.g. ["0x10","0x4c"]
-	Value       float64  `json:"value"`       // written when cheat is enabled (ignored if Input is true)
-	Input       bool     `json:"input"`       // true = user provides the value at runtime
+	Value       float64  `json:"value"`       // freeze: lock value; clamp: floor/ceiling; threshold: restore-to value
+	Trigger     float64  `json:"trigger"`     // threshold: write Value when current < Trigger
+	Input       bool     `json:"input"`       // true = user provides Value (and Trigger for threshold) at runtime
 }
 
 // TrainerFile is the root struct for a trainer JSON file.

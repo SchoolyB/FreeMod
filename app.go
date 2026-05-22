@@ -45,10 +45,13 @@ type TrainerSummary struct {
 }
 
 type CheatState struct {
-	Name        string `json:"Name"`
-	Description string `json:"Description"`
-	Enabled     bool   `json:"Enabled"`
-	Input       bool   `json:"Input"`
+	Name        string  `json:"Name"`
+	Description string  `json:"Description"`
+	Enabled     bool    `json:"Enabled"`
+	Input       bool    `json:"Input"`
+	Behavior    string  `json:"Behavior"`  // "freeze" | "clamp_min" | "clamp_max" | "threshold"
+	Value       float64 `json:"Value"`     // default write/clamp value
+	Trigger     float64 `json:"Trigger"`   // threshold: trigger level
 }
 
 type TrainerStatus struct {
@@ -64,8 +67,11 @@ type TrainerStatus struct {
 
 type activeCheat struct {
 	enabled      bool
-	restoreBytes []byte // original bytes read before first enable
-	writeBytes   []byte // bytes to write while frozen
+	behavior     string  // mirrors cheat.Behavior
+	restoreBytes []byte  // original bytes read before first enable
+	writeBytes   []byte  // bytes to write while frozen (also the clamp/threshold write value)
+	trigger      float64 // threshold: trigger level
+	cheatType    string  // mirrors cheat.Type (for reading current value)
 	addr         uintptr
 	cancelFreeze context.CancelFunc // non-nil while freeze goroutine is running
 }
@@ -277,8 +283,8 @@ func (a *App) LoadTrainer(filename string) (TrainerStatus, error) {
 	// already connected) status instead of waiting for the first watcher tick.
 	if a.settings.AutoConnect {
 		a.startWatcher(tf.Exe)
+		a.watchTick(tf.Exe)
 	}
-	a.watchTick(tf.Exe)
 
 	return a.buildStatus(), nil
 }
@@ -332,8 +338,9 @@ func (a *App) ConnectTrainer() (TrainerStatus, error) {
 }
 
 // ToggleCheat enables or disables cheat at index idx.
-// For input cheats, userValue is the value the user typed; ignored otherwise.
-func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatus, error) {
+// For input cheats, userValue is the write/clamp value; userTrigger is the
+// threshold level (only used when behavior == "threshold").
+func (a *App) ToggleCheat(idx int, enable bool, userValue float64, userTrigger float64) (TrainerStatus, error) {
 	a.trainerMu.Lock()
 	defer a.trainerMu.Unlock()
 
@@ -350,6 +357,10 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 	state := &a.cheatStates[idx]
 	cheat := a.activeTrainer.Cheats[idx]
 	addr := state.addr
+	behavior := cheat.Behavior
+	if behavior == "" {
+		behavior = "freeze"
+	}
 
 	if addr == 0 {
 		return TrainerStatus{}, fmt.Errorf("address not resolved for %q", cheat.Name)
@@ -357,14 +368,17 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 
 	if enable && !state.enabled {
 		size := cheatTypeSize(cheat.Type)
-		// Read and save original bytes.
 		orig, err := a.mem.ReadBytes(a.activePID, addr, size)
 		if err != nil {
 			return TrainerStatus{}, fmt.Errorf("reading original value: %w", err)
 		}
 		writeVal := cheat.Value
+		triggerVal := cheat.Trigger
 		if cheat.Input {
 			writeVal = userValue
+			if behavior == "threshold" {
+				triggerVal = userTrigger
+			}
 		}
 		wb, err := encodeCheatValue(cheat.Type, writeVal)
 		if err != nil {
@@ -372,16 +386,21 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 		}
 		state.restoreBytes = orig
 		state.writeBytes = wb
+		state.behavior = behavior
+		state.trigger = triggerVal
+		state.cheatType = cheat.Type
 		state.enabled = true
-
-		// Write once immediately, then freeze on an interval.
-		_ = a.mem.WriteBytes(a.activePID, addr, wb)
 
 		pid := a.activePID
 		mem := a.mem
 		interval := time.Duration(a.settings.FreezeIntervalMs) * time.Millisecond
 		ctx, cancel := context.WithCancel(context.Background())
 		state.cancelFreeze = cancel
+
+		// For freeze: write immediately. For clamp/threshold: only write when condition is met.
+		if behavior == "freeze" {
+			_ = mem.WriteBytes(pid, addr, wb)
+		}
 
 		go func() {
 			ticker := time.NewTicker(interval)
@@ -391,19 +410,36 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					_ = mem.WriteBytes(pid, addr, wb)
+					switch behavior {
+					case "clamp_min":
+						if cur, err := readCheatValueF64(mem, pid, addr, cheat.Type); err == nil && cur < writeVal {
+							_ = mem.WriteBytes(pid, addr, wb)
+						}
+					case "clamp_max":
+						if cur, err := readCheatValueF64(mem, pid, addr, cheat.Type); err == nil && cur > writeVal {
+							_ = mem.WriteBytes(pid, addr, wb)
+						}
+					case "threshold":
+						if cur, err := readCheatValueF64(mem, pid, addr, cheat.Type); err == nil && cur < triggerVal {
+							_ = mem.WriteBytes(pid, addr, wb)
+						}
+					default: // freeze
+						_ = mem.WriteBytes(pid, addr, wb)
+					}
 				}
 			}
 		}()
 
 	} else if !enable && state.enabled {
-		// Stop the freeze goroutine first, then restore.
 		if state.cancelFreeze != nil {
 			state.cancelFreeze()
 			state.cancelFreeze = nil
 		}
-		if err := a.mem.WriteBytes(a.activePID, addr, state.restoreBytes); err != nil {
-			return TrainerStatus{}, fmt.Errorf("restoring value: %w", err)
+		// Freeze restores original value; clamp/threshold just stop — game manages naturally.
+		if state.behavior == "freeze" || state.behavior == "" {
+			if err := a.mem.WriteBytes(a.activePID, addr, state.restoreBytes); err != nil {
+				return TrainerStatus{}, fmt.Errorf("restoring value: %w", err)
+			}
 		}
 		state.enabled = false
 	}
@@ -428,7 +464,8 @@ func (a *App) DisconnectTrainer() TrainerStatus {
 			state.cancelFreeze()
 			state.cancelFreeze = nil
 		}
-		if state.enabled && len(state.restoreBytes) > 0 && state.addr != 0 {
+		if state.enabled && len(state.restoreBytes) > 0 && state.addr != 0 &&
+			(state.behavior == "freeze" || state.behavior == "") {
 			_ = a.mem.WriteBytes(pid, state.addr, state.restoreBytes)
 		}
 		state.enabled = false
@@ -457,11 +494,18 @@ func (a *App) buildStatusLocked() TrainerStatus {
 	}
 	cheats := make([]CheatState, len(a.activeTrainer.Cheats))
 	for i, c := range a.activeTrainer.Cheats {
+		behavior := c.Behavior
+		if behavior == "" {
+			behavior = "freeze"
+		}
 		cheats[i] = CheatState{
 			Name:        c.Name,
 			Description: c.Description,
 			Enabled:     a.cheatStates[i].enabled,
 			Input:       c.Input,
+			Behavior:    behavior,
+			Value:       c.Value,
+			Trigger:     c.Trigger,
 		}
 	}
 	return TrainerStatus{
@@ -1052,6 +1096,24 @@ func cheatTypeSize(t string) int {
 		return 8
 	default: // "int32", "float32"
 		return 4
+	}
+}
+
+// readCheatValueF64 reads the current value at addr as the given type, returned
+// as float64 for threshold/clamp comparisons.
+func readCheatValueF64(mem memory.Memory, pid int, addr uintptr, t string) (float64, error) {
+	size := cheatTypeSize(t)
+	data, err := mem.ReadBytes(pid, addr, size)
+	if err != nil {
+		return 0, err
+	}
+	switch t {
+	case "float32":
+		return float64(math.Float32frombits(binary.LittleEndian.Uint32(data))), nil
+	case "int64":
+		return float64(int64(binary.LittleEndian.Uint64(data))), nil
+	default: // int32
+		return float64(int32(binary.LittleEndian.Uint32(data))), nil
 	}
 }
 

@@ -68,45 +68,102 @@ function Toggle({ checked, onChange, disabled }) {
 // ── Cheat Card ────────────────────────────────────────────────────────────────
 
 function CheatCard({ cheat, disabled, onToggle }) {
-  const [inputVal, setInputVal] = useState('')
+  const behavior = cheat.Behavior || 'freeze'
+  const isThreshold = behavior === 'threshold'
+  const isClamp = behavior === 'clamp_min' || behavior === 'clamp_max'
+
+  const [valueInput, setValueInput] = useState(cheat.Input ? String(cheat.Value || '') : '')
+  const [triggerInput, setTriggerInput] = useState(cheat.Input && isThreshold ? String(cheat.Trigger || '') : '')
 
   const handleToggle = (on) => {
+    if (!on) { onToggle(false, 0, 0); return }
     if (cheat.Input) {
-      const num = parseFloat(inputVal)
-      if (on && isNaN(num)) return   // don't enable without a value
-      onToggle(on, isNaN(num) ? 0 : num)
+      const val = parseFloat(valueInput)
+      if (isNaN(val)) return
+      const trig = isThreshold ? parseFloat(triggerInput) : 0
+      if (isThreshold && isNaN(trig)) return
+      onToggle(true, val, trig)
     } else {
-      onToggle(on, 0)
+      onToggle(true, 0, 0)
     }
   }
 
   const handleApply = () => {
-    const num = parseFloat(inputVal)
-    if (isNaN(num)) return
-    // Re-enable with new value (disable first if already on)
-    if (cheat.Enabled) onToggle(false, 0)
-    setTimeout(() => onToggle(true, num), 50)
+    const val = parseFloat(valueInput)
+    if (isNaN(val)) return
+    const trig = isThreshold ? parseFloat(triggerInput) : 0
+    if (cheat.Enabled) onToggle(false, 0, 0)
+    setTimeout(() => onToggle(true, val, trig), 50)
   }
 
+  const canEnable = !cheat.Input ||
+    (valueInput !== '' && !isNaN(parseFloat(valueInput)) &&
+      (!isThreshold || (triggerInput !== '' && !isNaN(parseFloat(triggerInput)))))
+
   return (
-    <div className={`cheat-card ${cheat.Enabled ? 'enabled' : ''}`}>
+    <div className={`cheat-card ${cheat.Enabled ? 'enabled' : ''} behavior-${behavior}`}>
       <div className="cheat-info">
-        <div className="cheat-name">{cheat.Name}</div>
+        <div className="cheat-name">
+          {cheat.Name}
+          {behavior !== 'freeze' && (
+            <span className={`behavior-badge behavior-badge-${behavior}`}>
+              {isThreshold ? 'threshold' : isClamp ? behavior === 'clamp_min' ? 'floor' : 'ceiling' : ''}
+            </span>
+          )}
+        </div>
         {cheat.Description && <div className="cheat-desc">{cheat.Description}</div>}
       </div>
       <div className="cheat-controls">
-        {cheat.Input && (
+        {cheat.Input && isThreshold && (
+          <div className="cheat-threshold-row">
+            <span className="threshold-label">if &lt;</span>
+            <input
+              type="number"
+              className="cheat-input cheat-input-sm"
+              placeholder={String(cheat.Trigger)}
+              value={triggerInput}
+              onChange={e => setTriggerInput(e.target.value)}
+              disabled={disabled || cheat.Enabled}
+            />
+            <span className="threshold-label">→</span>
+            <input
+              type="number"
+              className="cheat-input cheat-input-sm"
+              placeholder={String(cheat.Value)}
+              value={valueInput}
+              onChange={e => setValueInput(e.target.value)}
+              disabled={disabled || cheat.Enabled}
+            />
+          </div>
+        )}
+        {cheat.Input && isClamp && (
+          <div className="cheat-input-row">
+            <span className="threshold-label">{behavior === 'clamp_min' ? 'floor' : 'ceil'}</span>
+            <input
+              type="number"
+              className="cheat-input"
+              placeholder={String(cheat.Value)}
+              value={valueInput}
+              onChange={e => setValueInput(e.target.value)}
+              disabled={disabled || cheat.Enabled}
+            />
+            {cheat.Enabled && (
+              <button className="apply-btn" onClick={handleApply} disabled={disabled}>Apply</button>
+            )}
+          </div>
+        )}
+        {cheat.Input && !isThreshold && !isClamp && (
           <div className="cheat-input-row">
             <input
               type="number"
               className="cheat-input"
               placeholder="value"
-              value={inputVal}
-              onChange={e => setInputVal(e.target.value)}
+              value={valueInput}
+              onChange={e => setValueInput(e.target.value)}
               disabled={disabled}
             />
             {cheat.Enabled && (
-              <button className="apply-btn" onClick={handleApply} disabled={disabled || !inputVal}>
+              <button className="apply-btn" onClick={handleApply} disabled={disabled || !valueInput}>
                 Apply
               </button>
             )}
@@ -114,7 +171,7 @@ function CheatCard({ cheat, disabled, onToggle }) {
         )}
         <Toggle
           checked={cheat.Enabled}
-          disabled={disabled || (cheat.Input && !inputVal && !cheat.Enabled)}
+          disabled={disabled || !canEnable}
           onChange={handleToggle}
         />
       </div>
@@ -236,11 +293,11 @@ function TrainerTab({ status, setStatus }) {
     }
   }, [])
 
-  const toggleCheat = useCallback(async (idx, enable, userValue = 0) => {
+  const toggleCheat = useCallback(async (idx, enable, userValue = 0, userTrigger = 0) => {
     setToggling(idx)
     setActionErr(null)
     try {
-      const s = await ToggleCheat(idx, enable, userValue)
+      const s = await ToggleCheat(idx, enable, userValue, userTrigger)
       setStatus(s)
     } catch (e) {
       setActionErr(String(e))
@@ -338,7 +395,7 @@ function TrainerTab({ status, setStatus }) {
                     key={idx}
                     cheat={cheat}
                     disabled={!status.Connected || toggling === idx}
-                    onToggle={(on, userValue) => toggleCheat(idx, on, userValue)}
+                    onToggle={(on, userValue, userTrigger) => toggleCheat(idx, on, userValue, userTrigger)}
                   />
                 ))}
               </div>
@@ -1336,6 +1393,7 @@ function SettingsTab({ uiScale, onScaleChange }) {
 // ── Root App Layout ───────────────────────────────────────────────────────────
 
 const UI_SCALE_KEY = 'ui_scale'
+const THEME_KEY = 'theme'
 
 export default function App() {
   const [tab, setTab] = useState('trainers')
@@ -1343,10 +1401,19 @@ export default function App() {
   const [uiScale, setUiScale] = useState(() =>
     parseFloat(localStorage.getItem(UI_SCALE_KEY) || '1')
   )
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem(THEME_KEY) || 'dark'
+  )
 
   const applyScale = (val) => {
     setUiScale(val)
     localStorage.setItem(UI_SCALE_KEY, val)
+  }
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    localStorage.setItem(THEME_KEY, next)
   }
 
   // Track connected state globally to display a persistent notification widget in the sidebar
@@ -1368,7 +1435,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app" style={{ zoom: uiScale }}>
+      <div className="app" data-theme={theme} style={{ zoom: uiScale, height: `${100 / uiScale}vh`, width: `${100 / uiScale}vw` }}>
         {/* Premium WeMod style Sidebar */}
         <aside className="sidebar">
           <div className="sidebar-header">
@@ -1433,6 +1500,18 @@ export default function App() {
               </div>
             )}
             
+            <div className="theme-toggle-row">
+              <button className={`theme-icon-btn sun ${theme === 'light' ? 'active' : ''}`} onClick={() => theme !== 'light' && toggleTheme()} title="Light mode">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+              </button>
+              <button className={`theme-icon-btn moon ${theme === 'dark' ? 'active' : ''}`} onClick={() => theme !== 'dark' && toggleTheme()} title="Dark mode">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              </button>
+            </div>
             <button className="sidebar-kill-btn" onClick={() => KillApp()} title="Close application & deactivate all active cheats">
               Panic Close & Kill
             </button>

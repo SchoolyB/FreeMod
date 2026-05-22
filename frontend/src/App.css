@@ -30,6 +30,206 @@
 
   --transition-smooth: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: all 0.15s ease;
+
+  /* Semantic surface tokens */
+  --bg-card: #161a23;
+  --bg-card-hover: #1c212c;
+  --bg-inset: #0d0f14;
+  --surface-overlay: rgba(255, 255, 255, 0.02);
+  --surface-overlay-sm: rgba(255, 255, 255, 0.03);
+  --surface-overlay-md: rgba(255, 255, 255, 0.05);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.15);
+
+  /* Aliases for undefined vars used throughout */
+  --border: var(--border-subtle);
+  --text-primary: var(--text-normal);
+  --text-secondary: var(--text-muted);
+  --bg-hover: var(--bg-element-hover);
+}
+
+/* ── Light Theme ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-deep: #f0f2f7;
+  --bg-panel: #ffffff;
+  --bg-panel-solid: #ffffff;
+  --bg-element: #f5f7fb;
+  --bg-element-hover: #eaecf2;
+
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-focus: #7c3aed;
+  --border-glow: rgba(124, 58, 237, 0.12);
+
+  --accent-purple: #7c3aed;
+  --accent-purple-glow: rgba(124, 58, 237, 0.12);
+  --accent-blue: #2563eb;
+  --accent-green: #059669;
+  --accent-green-glow: rgba(5, 150, 105, 0.1);
+  --accent-red: #dc2626;
+
+  --text-bright: #0f1117;
+  --text-normal: #1e2330;
+  --text-muted: #5a6478;
+  --text-dark: #9ca3af;
+
+  --sidebar-bg: #e8eaf0;
+
+  /* Surface tokens */
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f2f7;
+  --bg-inset: #e8eaf0;
+  --surface-overlay: rgba(0, 0, 0, 0.02);
+  --surface-overlay-sm: rgba(0, 0, 0, 0.025);
+  --surface-overlay-md: rgba(0, 0, 0, 0.04);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.2);
+
+  --border: rgba(0, 0, 0, 0.1);
+  --text-primary: #1e2330;
+  --text-secondary: #5a6478;
+  --bg-hover: #eaecf2;
+}
+
+/* Light-mode component overrides */
+[data-theme="light"] .app-body {
+  background: var(--bg-deep);
+}
+
+[data-theme="light"] .gallery,
+[data-theme="light"] .trainer-detail {
+  background: var(--bg-deep);
+}
+
+[data-theme="light"] .cheat-card {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+[data-theme="light"] .cheat-card:hover {
+  background: var(--bg-card-hover);
+  border-color: rgba(0,0,0,0.12);
+}
+
+[data-theme="light"] .cheat-card.enabled {
+  background: rgba(124, 58, 237, 0.04);
+}
+
+[data-theme="light"] .dev-layout {
+  background: rgba(0,0,0,0.04);
+}
+
+[data-theme="light"] .dev-card {
+  background: var(--bg-panel);
+  backdrop-filter: none;
+}
+
+[data-theme="light"] .dev-card-header {
+  background: var(--bg-element);
+}
+
+[data-theme="light"] .dev-filter,
+[data-theme="light"] .dev-row input {
+  background: var(--bg-element);
+  color: var(--text-normal);
+  border-color: var(--border-subtle);
+}
+
+[data-theme="light"] .dev-module-base {
+  background: transparent;
+}
+
+[data-theme="light"] .dev-proc-row {
+  border-bottom-color: rgba(0,0,0,0.04);
+}
+
+[data-theme="light"] .dev-proc-row:hover {
+  background: rgba(0,0,0,0.03);
+}
+
+[data-theme="light"] .dev-proc-list,
+[data-theme="light"] .dev-addr-list {
+  background: var(--bg-panel);
+}
+
+[data-theme="light"] .dev-results-hdr {
+  background: var(--bg-element);
+}
+
+[data-theme="light"] .dev-addr-row {
+  border-bottom-color: rgba(0,0,0,0.03);
+}
+
+[data-theme="light"] .scan-hint {
+  background: rgba(0,0,0,0.03);
+}
+
+[data-theme="light"] .scan-mode-btn {
+  background: rgba(0,0,0,0.04);
+  color: var(--text-normal);
+}
+
+[data-theme="light"] .scan-history {
+  background: var(--bg-element);
+}
+
+[data-theme="light"] .scan-history-step {
+  background: rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .inspector-types {
+  background: var(--bg-element);
+}
+
+[data-theme="light"] .toggle.off {
+  background: rgba(0,0,0,0.12);
+  border-color: rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .settings-toggle.off {
+  background: rgba(0,0,0,0.12);
+}
+
+[data-theme="light"] .scale-slider-track {
+  background: rgba(0,0,0,0.1);
+}
+
+[data-theme="light"] .scale-tick-mark {
+  background: rgba(0,0,0,0.2);
+}
+
+[data-theme="light"] .scale-tick:hover .scale-tick-mark {
+  background: rgba(0,0,0,0.4);
+}
+
+[data-theme="light"] .settings-row-desc code {
+  background: rgba(0,0,0,0.06);
+  color: var(--text-muted);
+}
+
+[data-theme="light"] .settings-dir-input {
+  background: var(--bg-element);
+  color: var(--text-normal);
+}
+
+/* Scrollbars */
+[data-theme="light"] .gallery::-webkit-scrollbar-thumb,
+[data-theme="light"] .trainer-detail::-webkit-scrollbar-thumb,
+[data-theme="light"] .dev-proc-list::-webkit-scrollbar-thumb,
+[data-theme="light"] .dev-addr-list::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+
+[data-theme="light"] input,
+[data-theme="light"] select {
+  background: var(--bg-element);
+  color: var(--text-normal);
+  border-color: var(--border-subtle);
+}
+
+[data-theme="light"] code {
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--accent-purple);
 }
 
 /* ── Global Reset ────────────────────────────────────────────────────────── */
@@ -63,7 +263,7 @@ html, body, #root {
 /* ── Sidebar Navigation ───────────────────────────────────────────────────── */
 .sidebar {
   width: 230px;
-  background: #0d0f14; /* Solid, premium matte dark surface */
+  background: var(--sidebar-bg, #0d0f14);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
@@ -151,7 +351,7 @@ html, body, #root {
 .sidebar-footer {
   margin-top: auto;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-overlay-md);
   border-top: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
@@ -210,6 +410,49 @@ html, body, #root {
   100% { transform: scale(1.3); opacity: 1; }
 }
 
+.theme-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.theme-icon-btn {
+  background: none;
+  border: none;
+  padding: 6px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.theme-icon-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+.theme-icon-btn.sun.active {
+  color: #f59e0b;
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.7));
+}
+
+.theme-icon-btn.moon.active {
+  color: #ffffff;
+  opacity: 1;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+}
+
+.theme-icon-btn:not(.active):hover {
+  opacity: 0.65;
+}
+
 .sidebar-kill-btn {
   background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.25);
@@ -233,15 +476,18 @@ html, body, #root {
 /* ── Main App Container ───────────────────────────────────────────────────── */
 .app-body {
   flex: 1;
-  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   position: relative;
-  background: rgba(10, 12, 16, 0.2);
+  background: var(--surface-overlay);
 }
 
 /* ── Gallery Tab (Games Page) ────────────────────────────────────────────── */
 .trainer-tab {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -259,11 +505,11 @@ html, body, #root {
   background: transparent;
 }
 .gallery::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 .gallery::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb-hover);
 }
 
 .gallery-header {
@@ -327,7 +573,7 @@ html, body, #root {
   border-radius: var(--radius-lg);
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-overlay);
   transition: var(--transition-smooth);
 }
 
@@ -393,7 +639,7 @@ html, body, #root {
   width: 8px;
 }
 .trainer-detail::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 
@@ -560,7 +806,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #161a23; /* Solid premium matte carbon card */
+  background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   padding: 18px 24px;
@@ -569,7 +815,7 @@ html, body, #root {
 
 .cheat-card:hover {
   border-color: rgba(255, 255, 255, 0.1);
-  background: #1c212c;
+  background: var(--bg-card-hover);
   transform: translateX(4px);
 }
 
@@ -610,7 +856,7 @@ html, body, #root {
 
 .cheat-input {
   width: 90px;
-  background: #0d0f14; /* Matte background */
+  background: var(--bg-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-bright);
@@ -653,6 +899,53 @@ html, body, #root {
   cursor: not-allowed;
 }
 
+/* ── Behavior badge ──────────────────────────────────────────────────────── */
+
+.behavior-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.behavior-badge-threshold {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fb923c;
+  border: 1px solid rgba(251, 146, 60, 0.3);
+}
+
+.behavior-badge-clamp_min,
+.behavior-badge-clamp_max {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* ── Threshold / clamp inputs ────────────────────────────────────────────── */
+
+.cheat-threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.threshold-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.cheat-input-sm {
+  width: 64px !important;
+  flex: none !important;
+}
+
 /* Premium Matte Sliders / Switch Toggles */
 .toggle {
   display: flex;
@@ -674,7 +967,7 @@ html, body, #root {
 
 .toggle.off {
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--surface-overlay);
 }
 
 .toggle.disabled {
@@ -706,7 +999,8 @@ html, body, #root {
 
 /* ── Dev Mode / Memory Suite Dashboard ────────────────────────────────────── */
 .dev-tab {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -801,7 +1095,7 @@ html, body, #root {
 
 /* Column panels */
 .dev-card {
-  background: rgba(13, 17, 23, 0.4);
+  background: var(--bg-card);
   backdrop-filter: blur(15px);
   border-right: 1px solid var(--border-subtle);
   display: flex;
@@ -839,7 +1133,7 @@ html, body, #root {
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-overlay);
   font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
@@ -871,7 +1165,7 @@ html, body, #root {
 .dev-filter {
   margin: 10px 14px;
   width: calc(100% - 28px);
-  background: rgba(13, 17, 23, 0.8);
+  background: var(--bg-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-bright);
@@ -892,7 +1186,7 @@ html, body, #root {
   font-size: 13px;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-subtle);
-  background: rgba(0, 0, 0, 0.1);
+  background: var(--surface-overlay);
 }
 
 .dev-module-base code {
@@ -912,7 +1206,7 @@ html, body, #root {
 }
 
 .dev-proc-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 
@@ -922,12 +1216,12 @@ html, body, #root {
   gap: 12px;
   padding: 8px 16px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--surface-overlay);
   transition: var(--transition-fast);
 }
 
 .dev-proc-row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-overlay);
 }
 
 .dev-proc-row.selected {
@@ -970,7 +1264,7 @@ html, body, #root {
 
 .dev-row input {
   flex: 1;
-  background: rgba(13, 17, 23, 0.8);
+  background: var(--bg-inset);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-bright);
@@ -1030,7 +1324,7 @@ html, body, #root {
   font-size: 13px;
   font-weight: 700;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--surface-overlay);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -1059,13 +1353,13 @@ html, body, #root {
 }
 
 .dev-addr-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--scrollbar-thumb);
 }
 
 .dev-addr-row {
   padding: 8px 18px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.01);
+  border-bottom: 1px solid var(--surface-overlay);
   font-family: var(--font-mono);
   font-size: 12px;
   color: #a78bfa;
@@ -1151,7 +1445,7 @@ html, body, #root {
   padding: 9px 12px;
   font-size: 12px;
   color: var(--text-muted);
-  background: rgba(255,255,255,0.03);
+  background: var(--surface-overlay-sm);
   border: 1px solid var(--border-subtle);
   border-radius: 7px;
   line-height: 1.5;
@@ -1184,7 +1478,7 @@ html, body, #root {
   padding: 5px 11px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
-  background: rgba(255,255,255,0.04);
+  background: var(--surface-overlay-md);
   color: var(--text-primary);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
@@ -1244,7 +1538,7 @@ html, body, #root {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.07);
+  background: var(--surface-overlay-md);
   font-size: 12px;
   font-weight: 700;
   flex-shrink: 0;
@@ -1300,7 +1594,7 @@ html, body, #root {
   flex-direction: column;
   gap: 4px;
   margin: 4px 14px 10px;
-  background: rgba(255,255,255,0.02);
+  background: var(--surface-overlay);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   overflow: hidden;
@@ -1513,7 +1807,8 @@ button.danger:hover:not(:disabled) {
 /* ── Settings Tab ────────────────────────────────────────────────────────────── */
 
 .settings-tab {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 28px 32px 48px;
   display: flex;
@@ -1549,7 +1844,6 @@ button.danger:hover:not(:disabled) {
   background: var(--bg-element);
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  overflow: hidden;
   margin-bottom: 4px;
 }
 
@@ -1616,7 +1910,7 @@ button.danger:hover:not(:disabled) {
 .settings-row-desc code {
   font-family: var(--font-mono);
   font-size: 12px;
-  background: rgba(255,255,255,0.05);
+  background: var(--surface-overlay-md);
   padding: 1px 4px;
   border-radius: 3px;
 }
@@ -1634,7 +1928,7 @@ button.danger:hover:not(:disabled) {
 }
 
 .settings-toggle.on  { background: var(--accent-purple); }
-.settings-toggle.off { background: rgba(255,255,255,0.1); }
+.settings-toggle.off { background: rgba(255,255,255,0.12); }
 
 .settings-toggle-knob {
   position: absolute;
@@ -1667,7 +1961,7 @@ button.danger:hover:not(:disabled) {
 .scale-slider-track {
   position: relative;
   height: 6px;
-  background: rgba(255,255,255,0.08);
+  background: var(--scrollbar-thumb);
   border-radius: 99px;
   border: 1px solid var(--border-subtle);
 }
@@ -1712,12 +2006,12 @@ button.danger:hover:not(:disabled) {
 .scale-tick-mark {
   width: 2px;
   height: 7px;
-  background: rgba(255,255,255,0.2);
+  background: var(--scrollbar-thumb-hover);
   border-radius: 1px;
   transition: background 0.15s, height 0.15s;
 }
 
-.scale-tick:hover .scale-tick-mark { background: rgba(255,255,255,0.5); }
+.scale-tick:hover .scale-tick-mark { background: var(--text-muted); }
 
 .scale-tick.active .scale-tick-mark {
   background: var(--accent-purple);
@@ -1759,7 +2053,7 @@ button.danger:hover:not(:disabled) {
 
 .settings-dir-input {
   flex: 1;
-  background: rgba(255,255,255,0.04);
+  background: var(--surface-overlay-md);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   padding: 7px 10px;
