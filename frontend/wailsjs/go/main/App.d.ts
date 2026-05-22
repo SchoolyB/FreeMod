@@ -24,6 +24,8 @@ export function ListTrainers():Promise<Array<main.TrainerSummary>>;
 
 export function LoadTrainer(arg1:string):Promise<main.TrainerStatus>;
 
+export function NarrowAllTypes(arg1:number):Promise<main.AllTypesScanResult>;
+
 export function NarrowValue(arg1:number):Promise<main.ScanResult>;
 
 export function NarrowValueFloat(arg1:number):Promise<main.ScanResult>;
@@ -38,7 +40,11 @@ export function ReadValue(arg1:string):Promise<number>;
 
 export function SaveSettings(arg1:main.Settings):Promise<void>;
 
+export function ScanAllTypes(arg1:number):Promise<main.AllTypesScanResult>;
+
 export function ScanByMode(arg1:string):Promise<main.ScanResult>;
+
+export function ScanByModeAll(arg1:string):Promise<main.AllTypesScanResult>;
 
 export function ScanValue(arg1:number):Promise<main.ScanResult>;
 

@@ -46,6 +46,10 @@ export function LoadTrainer(arg1) {
   return window['go']['main']['App']['LoadTrainer'](arg1);
 }
 
+export function NarrowAllTypes(arg1) {
+  return window['go']['main']['App']['NarrowAllTypes'](arg1);
+}
+
 export function NarrowValue(arg1) {
   return window['go']['main']['App']['NarrowValue'](arg1);
 }
@@ -74,8 +78,16 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
+export function ScanAllTypes(arg1) {
+  return window['go']['main']['App']['ScanAllTypes'](arg1);
+}
+
 export function ScanByMode(arg1) {
   return window['go']['main']['App']['ScanByMode'](arg1);
+}
+
+export function ScanByModeAll(arg1) {
+  return window['go']['main']['App']['ScanByModeAll'](arg1);
 }
 
 export function ScanValue(arg1) {

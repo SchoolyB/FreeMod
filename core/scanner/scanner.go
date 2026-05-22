@@ -256,6 +256,163 @@ func NarrowByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals []int32,
 	return survivors, newVals, nil
 }
 
+// ScanForInt64 scans all readable memory regions for the given int64 value.
+func ScanForInt64(mem memory.Memory, pid int, value int64) ([]uintptr, error) {
+	regions, err := mem.ReadableRegions(pid)
+	if err != nil {
+		return nil, fmt.Errorf("enumerating regions: %w", err)
+	}
+	target := make([]byte, 8)
+	binary.LittleEndian.PutUint64(target, uint64(value))
+	var matches []uintptr
+	for _, region := range regions {
+		if region.Size < 8 || region.Size > maxRegionSize {
+			continue
+		}
+		data, err := mem.ReadBytes(pid, region.Start, int(region.Size))
+		if err != nil {
+			continue
+		}
+		for i := 0; i <= len(data)-8; i++ {
+			if data[i] == target[0] && data[i+1] == target[1] &&
+				data[i+2] == target[2] && data[i+3] == target[3] &&
+				data[i+4] == target[4] && data[i+5] == target[5] &&
+				data[i+6] == target[6] && data[i+7] == target[7] {
+				matches = append(matches, region.Start+uintptr(i))
+			}
+		}
+	}
+	return matches, nil
+}
+
+// ScanForFloat64 scans all readable memory regions for the given float64 value.
+func ScanForFloat64(mem memory.Memory, pid int, value float64) ([]uintptr, error) {
+	regions, err := mem.ReadableRegions(pid)
+	if err != nil {
+		return nil, fmt.Errorf("enumerating regions: %w", err)
+	}
+	target := make([]byte, 8)
+	binary.LittleEndian.PutUint64(target, math.Float64bits(value))
+	var matches []uintptr
+	for _, region := range regions {
+		if region.Size < 8 || region.Size > maxRegionSize {
+			continue
+		}
+		data, err := mem.ReadBytes(pid, region.Start, int(region.Size))
+		if err != nil {
+			continue
+		}
+		for i := 0; i <= len(data)-8; i++ {
+			if data[i] == target[0] && data[i+1] == target[1] &&
+				data[i+2] == target[2] && data[i+3] == target[3] &&
+				data[i+4] == target[4] && data[i+5] == target[5] &&
+				data[i+6] == target[6] && data[i+7] == target[7] {
+				matches = append(matches, region.Start+uintptr(i))
+			}
+		}
+	}
+	return matches, nil
+}
+
+// NarrowScanInt64 filters a previous address list to those matching newValue as int64.
+func NarrowScanInt64(mem memory.Memory, pid int, addrs []uintptr, newValue int64) ([]uintptr, error) {
+	var matches []uintptr
+	for _, addr := range addrs {
+		data, err := mem.ReadBytes(pid, addr, 8)
+		if err != nil {
+			continue
+		}
+		if int64(binary.LittleEndian.Uint64(data)) == newValue {
+			matches = append(matches, addr)
+		}
+	}
+	return matches, nil
+}
+
+// NarrowScanFloat64 filters a previous address list to those matching newValue as float64.
+func NarrowScanFloat64(mem memory.Memory, pid int, addrs []uintptr, newValue float64) ([]uintptr, error) {
+	bits := math.Float64bits(newValue)
+	var matches []uintptr
+	for _, addr := range addrs {
+		data, err := mem.ReadBytes(pid, addr, 8)
+		if err != nil {
+			continue
+		}
+		if binary.LittleEndian.Uint64(data) == bits {
+			matches = append(matches, addr)
+		}
+	}
+	return matches, nil
+}
+
+// NarrowInt64ByMode filters a previous int64 address list by change mode.
+func NarrowInt64ByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals []int64, mode string) ([]uintptr, []int64, error) {
+	if len(addrs) != len(prevVals) {
+		return nil, nil, fmt.Errorf("address/value slice length mismatch")
+	}
+	var survivors []uintptr
+	var newVals []int64
+	for i, addr := range addrs {
+		data, err := mem.ReadBytes(pid, addr, 8)
+		if err != nil {
+			continue
+		}
+		cur := int64(binary.LittleEndian.Uint64(data))
+		var keep bool
+		switch mode {
+		case "increased":
+			keep = cur > prevVals[i]
+		case "decreased":
+			keep = cur < prevVals[i]
+		case "changed":
+			keep = cur != prevVals[i]
+		case "unchanged":
+			keep = cur == prevVals[i]
+		default:
+			return nil, nil, fmt.Errorf("unknown scan mode %q", mode)
+		}
+		if keep {
+			survivors = append(survivors, addr)
+			newVals = append(newVals, cur)
+		}
+	}
+	return survivors, newVals, nil
+}
+
+// NarrowFloat64ByMode filters a previous float64 address list by change mode.
+func NarrowFloat64ByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals []float64, mode string) ([]uintptr, []float64, error) {
+	if len(addrs) != len(prevVals) {
+		return nil, nil, fmt.Errorf("address/value slice length mismatch")
+	}
+	var survivors []uintptr
+	var newVals []float64
+	for i, addr := range addrs {
+		data, err := mem.ReadBytes(pid, addr, 8)
+		if err != nil {
+			continue
+		}
+		cur := math.Float64frombits(binary.LittleEndian.Uint64(data))
+		var keep bool
+		switch mode {
+		case "increased":
+			keep = cur > prevVals[i]
+		case "decreased":
+			keep = cur < prevVals[i]
+		case "changed":
+			keep = cur != prevVals[i]
+		case "unchanged":
+			keep = cur == prevVals[i]
+		default:
+			return nil, nil, fmt.Errorf("unknown scan mode %q", mode)
+		}
+		if keep {
+			survivors = append(survivors, addr)
+			newVals = append(newVals, cur)
+		}
+	}
+	return survivors, newVals, nil
+}
+
 // FindModuleBase scans the process's readable regions for a Mach-O 64-bit
 // header (magic 0xFEEDFACF) at an address >= 0x100000000, which is the
 // default load address of the main executable on macOS arm64/amd64.

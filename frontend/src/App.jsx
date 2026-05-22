@@ -28,6 +28,9 @@ import {
   ScanValueFloat,
   NarrowValueFloat,
   WalkPointerChain,
+  ScanAllTypes,
+  NarrowAllTypes,
+  ScanByModeAll,
 } from '../wailsjs/go/main/App'
 
 // ── Error Boundary ────────────────────────────────────────────────────────────
@@ -573,7 +576,8 @@ function DevModeTab() {
   // Scanner state
   const [addresses, setAddresses] = useState([])
   const [scanVal, setScanVal] = useState('')
-  const [scanType, setScanType] = useState('int32') // 'int32' or 'float32'
+  const [scanType, setScanType] = useState('int32') // 'int32', 'float32', or 'all'
+  const [allTypesResults, setAllTypesResults] = useState(null) // only set in 'all' mode
   const [scanning, setScanning] = useState(false)
   const [scanHistory, setScanHistory] = useState([]) // timeline entries
   const [selectedAddr, setSelectedAddr] = useState(null)
@@ -651,15 +655,25 @@ function DevModeTab() {
   }
 
   const doScan = useCallback(async () => {
-    const num = scanType === 'float32' ? parseFloat(scanVal) : parseInt(scanVal, 10)
+    const num = parseFloat(scanVal)
     if (isNaN(num)) return
     setScanning(true)
     try {
-      const r = scanType === 'float32' ? await ScanValueFloat(num) : await ScanValue(num)
+      if (scanType === 'all') {
+        const r = await ScanAllTypes(num)
+        setAllTypesResults(r)
+        const all = [...(r.Int32?.Addresses||[]), ...(r.Float32?.Addresses||[]), ...(r.Int64?.Addresses||[]), ...(r.Float64?.Addresses||[])]
+        setAddresses(all)
+        setSelectedAddr(null)
+        setScanHistory(h => [...h, { type: 'scan-all', val: num, count: all.length, i32: r.Int32?.Count||0, f32: r.Float32?.Count||0, i64: r.Int64?.Count||0, f64: r.Float64?.Count||0 }])
+        return
+      }
+      const r = scanType === 'float32' ? await ScanValueFloat(num) : await ScanValue(Math.trunc(num))
+      setAllTypesResults(null)
       setAddresses(r.Addresses || [])
       setSelectedAddr(null)
       setAllTypes(null)
-      setScanHistory([]) // fresh scan resets history
+      setScanHistory([])
       addHistory('initial', num, null, r.Count)
       showStatus(`Scanned — ${r.Count} match${r.Count === 1 ? '' : 'es'}`)
     } catch (e) {
@@ -670,11 +684,21 @@ function DevModeTab() {
   }, [scanVal, scanType])
 
   const doNarrow = useCallback(async () => {
-    const num = scanType === 'float32' ? parseFloat(scanVal) : parseInt(scanVal, 10)
+    const num = parseFloat(scanVal)
     if (isNaN(num)) return
     setScanning(true)
     try {
-      const r = scanType === 'float32' ? await NarrowValueFloat(num) : await NarrowValue(num)
+      if (scanType === 'all') {
+        const r = await NarrowAllTypes(num)
+        setAllTypesResults(r)
+        const all = [...(r.Int32?.Addresses||[]), ...(r.Float32?.Addresses||[]), ...(r.Int64?.Addresses||[]), ...(r.Float64?.Addresses||[])]
+        setAddresses(all)
+        setSelectedAddr(null)
+        setScanHistory(h => [...h, { type: 'narrow-all', val: num, count: all.length, i32: r.Int32?.Count||0, f32: r.Float32?.Count||0, i64: r.Int64?.Count||0, f64: r.Float64?.Count||0 }])
+        showStatus(`Narrowed — ${all.length} total`)
+        return
+      }
+      const r = scanType === 'float32' ? await NarrowValueFloat(num) : await NarrowValue(Math.trunc(num))
       setAddresses(r.Addresses || [])
       setSelectedAddr(null)
       setAllTypes(null)
@@ -690,6 +714,16 @@ function DevModeTab() {
   const doModeScan = useCallback(async (mode) => {
     setScanning(true)
     try {
+      if (scanType === 'all') {
+        const r = await ScanByModeAll(mode)
+        setAllTypesResults(r)
+        const all = [...(r.Int32?.Addresses||[]), ...(r.Float32?.Addresses||[]), ...(r.Int64?.Addresses||[]), ...(r.Float64?.Addresses||[])]
+        setAddresses(all)
+        setSelectedAddr(null)
+        setScanHistory(h => [...h, { type: 'mode-all', val: null, mode, count: all.length, i32: r.Int32?.Count||0, f32: r.Float32?.Count||0, i64: r.Int64?.Count||0, f64: r.Float64?.Count||0 }])
+        showStatus(`${mode} — ${all.length} total`)
+        return
+      }
       const r = await ScanByMode(mode)
       setAddresses(r.Addresses || [])
       setSelectedAddr(null)
@@ -701,7 +735,7 @@ function DevModeTab() {
     } finally {
       setScanning(false)
     }
-  }, [])
+  }, [scanType])
 
   const selectAddr = useCallback(async (addr) => {
     setSelectedAddr(addr)
@@ -901,14 +935,19 @@ function DevModeTab() {
             <div className="scan-type-toggle">
               <button
                 className={`scan-type-btn ${scanType === 'int32' ? 'active' : ''}`}
-                onClick={() => { setScanType('int32'); setScanHistory([]); setAddresses([]) }}
+                onClick={() => { setScanType('int32'); setScanHistory([]); setAddresses([]); setAllTypesResults(null) }}
                 disabled={scanning}
               >int32</button>
               <button
                 className={`scan-type-btn ${scanType === 'float32' ? 'active' : ''}`}
-                onClick={() => { setScanType('float32'); setScanHistory([]); setAddresses([]) }}
+                onClick={() => { setScanType('float32'); setScanHistory([]); setAddresses([]); setAllTypesResults(null) }}
                 disabled={scanning}
               >float32</button>
+              <button
+                className={`scan-type-btn ${scanType === 'all' ? 'active' : ''}`}
+                onClick={() => { setScanType('all'); setScanHistory([]); setAddresses([]); setAllTypesResults(null) }}
+                disabled={scanning}
+              >all types</button>
             </div>
           </div>
 
@@ -985,16 +1024,41 @@ function DevModeTab() {
           </div>
 
           <div className="dev-addr-list">
-            {(addresses.length > 200 ? addresses.slice(0, 200) : addresses).map(addr => (
-              <div
-                key={addr}
-                className={`dev-addr-row ${addr === selectedAddr ? 'selected' : ''}`}
-                onClick={() => selectAddr(addr)}
-              >
-                {addr}
-                {addr === selectedAddr && <span className="addr-selected-tag">selected</span>}
-              </div>
-            ))}
+            {scanType === 'all' && allTypesResults ? (
+              [['int32', allTypesResults.Int32], ['float32', allTypesResults.Float32], ['int64', allTypesResults.Int64], ['float64', allTypesResults.Float64]].map(([label, res]) =>
+                res?.Count > 0 && (
+                  <div key={label} className="all-types-group">
+                    <div className="all-types-group-header">
+                      <span className="all-types-label">{label}</span>
+                      <span className="all-types-count">{res.Count}</span>
+                    </div>
+                    {(res.Addresses.length > 50 ? res.Addresses.slice(0, 50) : res.Addresses).map(addr => (
+                      <div
+                        key={`${label}-${addr}`}
+                        className={`dev-addr-row ${addr === selectedAddr ? 'selected' : ''}`}
+                        onClick={() => selectAddr(addr)}
+                      >
+                        {addr}
+                        <span className="addr-type-tag">{label}</span>
+                        {addr === selectedAddr && <span className="addr-selected-tag">selected</span>}
+                      </div>
+                    ))}
+                    {res.Addresses.length > 50 && <div className="addr-overflow">+{res.Addresses.length - 50} more</div>}
+                  </div>
+                )
+              )
+            ) : (
+              (addresses.length > 200 ? addresses.slice(0, 200) : addresses).map(addr => (
+                <div
+                  key={addr}
+                  className={`dev-addr-row ${addr === selectedAddr ? 'selected' : ''}`}
+                  onClick={() => selectAddr(addr)}
+                >
+                  {addr}
+                  {addr === selectedAddr && <span className="addr-selected-tag">selected</span>}
+                </div>
+              ))
+            )}
           </div>
         </section>
 
