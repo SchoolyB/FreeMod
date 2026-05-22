@@ -23,6 +23,7 @@ import {
   GetSettings,
   SaveSettings,
   PickTrainerDir,
+  SetFullscreen,
 } from '../wailsjs/go/main/App'
 import { BrowserOpenURL } from '../wailsjs/runtime/runtime'
 
@@ -906,9 +907,65 @@ function DevModeTab() {
 
 const WARN_DISMISSED_KEY = 'devmode_warning_dismissed'
 
+// ── Scale Slider ──────────────────────────────────────────────────────────────
+
+const SCALE_TICKS = [
+  { value: 0.75, label: '75%' },
+  { value: 1.00, label: '100%' },
+  { value: 1.25, label: '125%' },
+  { value: 1.50, label: '150%' },
+]
+const SCALE_MIN = 0.75
+const SCALE_MAX = 1.50
+const SCALE_STEP = 0.05
+
+function ScaleSlider({ value, onChange }) {
+  const pct = ((value - SCALE_MIN) / (SCALE_MAX - SCALE_MIN)) * 100
+
+  return (
+    <div className="scale-slider-wrap">
+      {/* Track + thumb */}
+      <div className="scale-slider-track-row">
+        <div className="scale-slider-track">
+          <div className="scale-slider-fill" style={{ width: `${pct}%` }} />
+          <input
+            type="range"
+            className="scale-slider-input"
+            min={SCALE_MIN}
+            max={SCALE_MAX}
+            step={SCALE_STEP}
+            value={value}
+            onChange={e => onChange(parseFloat(e.target.value))}
+          />
+        </div>
+      </div>
+
+      {/* Tick marks + labels */}
+      <div className="scale-slider-ticks">
+        {SCALE_TICKS.map(tick => {
+          const pos = ((tick.value - SCALE_MIN) / (SCALE_MAX - SCALE_MIN)) * 100
+          const active = Math.abs(value - tick.value) < 0.001
+          return (
+            <div
+              key={tick.value}
+              className={`scale-tick ${active ? 'active' : ''}`}
+              style={{ left: `${pos}%` }}
+              onClick={() => onChange(tick.value)}
+              title={tick.label}
+            >
+              <div className="scale-tick-mark" />
+              <span className="scale-tick-label">{tick.label}</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── SETTINGS TAB ──────────────────────────────────────────────────────────────
 
-function SettingsTab() {
+function SettingsTab({ uiScale, onScaleChange }) {
   const [settings, setSettings] = useState(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -966,6 +1023,42 @@ function SettingsTab() {
         <h1>Settings</h1>
         <p>Configure FreeMod behavior. Changes are saved per-machine.</p>
       </div>
+
+      {/* ── Interface ── */}
+      <section className="settings-section">
+        <div className="settings-section-title">Interface</div>
+        <div className="settings-row settings-row-col">
+          <div className="settings-row-info">
+            <span className="settings-row-label">
+              UI Scale
+              <code className="settings-row-value">{Math.round(uiScale * 100)}%</code>
+            </span>
+            <span className="settings-row-desc">
+              Resize all UI elements. Takes effect immediately — no restart needed.
+            </span>
+          </div>
+          <ScaleSlider value={uiScale} onChange={onScaleChange} />
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Launch fullscreen</span>
+            <span className="settings-row-desc">
+              Open FreeMod in fullscreen mode on every launch. Toggle applies immediately.
+            </span>
+          </div>
+          <button
+            className={`settings-toggle ${settings.LaunchFullscreen ? 'on' : 'off'}`}
+            onClick={() => {
+              const next = !settings.LaunchFullscreen
+              update('LaunchFullscreen', next)
+              SetFullscreen(next)
+            }}
+          >
+            <span className="settings-toggle-knob" />
+          </button>
+        </div>
+      </section>
 
       {/* ── General ── */}
       <section className="settings-section">
@@ -1087,10 +1180,20 @@ function SettingsTab() {
 
 // ── Root App Layout ───────────────────────────────────────────────────────────
 
+const UI_SCALE_KEY = 'ui_scale'
+
 export default function App() {
   const [tab, setTab] = useState('trainers')
   const [trainerStatus, setTrainerStatus] = useState(null)
-  
+  const [uiScale, setUiScale] = useState(() =>
+    parseFloat(localStorage.getItem(UI_SCALE_KEY) || '1')
+  )
+
+  const applyScale = (val) => {
+    setUiScale(val)
+    localStorage.setItem(UI_SCALE_KEY, val)
+  }
+
   // Track connected state globally to display a persistent notification widget in the sidebar
   const [globalGame, setGlobalGame] = useState(null)
 
@@ -1110,7 +1213,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app">
+      <div className="app" style={{ zoom: uiScale }}>
         {/* Premium WeMod style Sidebar */}
         <aside className="sidebar">
           <div className="sidebar-header">
@@ -1188,7 +1291,7 @@ export default function App() {
           ) : tab === 'dev' ? (
             <DevModeTab />
           ) : (
-            <SettingsTab />
+            <SettingsTab uiScale={uiScale} onScaleChange={applyScale} />
           )}
         </div>
       </div>

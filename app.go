@@ -500,6 +500,17 @@ func (a *App) SaveSettings(s Settings) error {
 	return nil
 }
 
+// SetFullscreen enters or exits fullscreen and persists the preference.
+func (a *App) SetFullscreen(enable bool) {
+	if enable {
+		runtime.WindowFullscreen(a.ctx)
+	} else {
+		runtime.WindowUnfullscreen(a.ctx)
+	}
+	a.settings.LaunchFullscreen = enable
+	_ = a.settings.save()
+}
+
 // PickTrainerDir opens a native directory picker and returns the chosen path.
 func (a *App) PickTrainerDir() string {
 	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{

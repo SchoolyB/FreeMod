@@ -74,6 +74,10 @@ export function ScanValue(arg1) {
   return window['go']['main']['App']['ScanValue'](arg1);
 }
 
+export function SetFullscreen(arg1) {
+  return window['go']['main']['App']['SetFullscreen'](arg1);
+}
+
 export function StopTestFreeze() {
   return window['go']['main']['App']['StopTestFreeze']();
 }

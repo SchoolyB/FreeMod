@@ -11,6 +11,7 @@ type Settings struct {
 	AutoConnect      bool   `json:"AutoConnect"`
 	FreezeIntervalMs int    `json:"FreezeIntervalMs"`
 	TrainerDir       string `json:"TrainerDir"`
+	LaunchFullscreen bool   `json:"LaunchFullscreen"`
 }
 
 func defaultSettings() Settings {
@@ -18,6 +19,7 @@ func defaultSettings() Settings {
 		AutoConnect:      true,
 		FreezeIntervalMs: 100,
 		TrainerDir:       "",
+		LaunchFullscreen: false,
 	}
 }
 
