@@ -86,6 +86,7 @@ Trainer format:
   "game": "My Game",
   "exe": "mygame",
   "version": "1.0",
+  "image": "mygame.png",
   "cheats": [
     {
       "name": "Infinite Health",
@@ -99,6 +100,10 @@ Trainer format:
 ```
 
 Supported types: `int32`, `int64`, `float32`.
+
+`image` is optional — a cover-art file (PNG/JPG/WebP) in the same folder as the
+trainer JSON, shown in the game gallery. Vertical 2:3 art looks best; without
+it the game gets a lettered placeholder tile.
 
 For dynamic memory, add an `"offsets"` array to walk a pointer chain:
 
