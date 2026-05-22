@@ -119,16 +119,21 @@ function TrainerTab() {
   const [toggling, setToggling] = useState(-1) // index of cheat being toggled
   const [actionErr, setActionErr] = useState(null)
 
-  // Load trainer list on mount
+  // Load trainer list on mount, and restore any trainer the backend still
+  // holds — the Go side stays connected across tab switches, so remounting
+  // this tab must not look like a disconnect.
   useEffect(() => {
     setLoadingList(true)
     ListTrainers()
       .then(r => setList(r || []))
       .catch(e => setListErr(String(e)))
       .finally(() => setLoadingList(false))
+    GetTrainerStatus()
+      .then(s => { if (s && s.Game) setStatus(s) })
+      .catch(() => {})
   }, [])
 
-  // Poll status every 2s to reflect auto-connect/disconnect
+  // Poll status every second to reflect auto-connect/disconnect.
   useEffect(() => {
     if (!status) return
     const id = setInterval(async () => {
@@ -136,7 +141,7 @@ function TrainerTab() {
         const s = await GetTrainerStatus()
         if (s && s.Game) setStatus(s)
       } catch (_) {}
-    }, 2000)
+    }, 1000)
     return () => clearInterval(id)
   }, [!!status])
 

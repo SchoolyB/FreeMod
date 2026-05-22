@@ -194,8 +194,11 @@ func (a *App) LoadTrainer(filename string) (TrainerStatus, error) {
 	a.cheatStates = make([]activeCheat, len(tf.Cheats))
 	a.trainerMu.Unlock()
 
-	// Start auto-connect watcher for this game's exe.
+	// Start the auto-connect watcher, then connect right now if the game is
+	// already running — so LoadTrainer returns an accurate (often already
+	// connected) status instead of waiting for the first watcher tick.
 	a.startWatcher(tf.Exe)
+	a.watchTick(tf.Exe)
 
 	return a.buildStatus(), nil
 }
@@ -464,79 +467,89 @@ func (a *App) ReadValue(addrHex string) (int32, error) {
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-// startWatcher launches a goroutine that auto-connects/disconnects as the game starts/stops.
+// startWatcher launches a goroutine that auto-connects/disconnects as the game
+// starts/stops. It checks once immediately, then every second.
 func (a *App) startWatcher(exe string) {
 	a.stopWatcher()
 	ctx, cancel := context.WithCancel(context.Background())
 	a.watchCancel = cancel
 
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
+			a.watchTick(exe)
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				a.trainerMu.Lock()
-				currentPID := a.activePID
-				a.trainerMu.Unlock()
-
-				procs, err := process.ListProcesses()
-				if err != nil {
-					continue
-				}
-
-				found := 0
-				for _, p := range procs {
-					if strings.EqualFold(p.Name, exe) {
-						found = p.PID
-						break
-					}
-				}
-
-				if found != 0 && found != currentPID {
-					// Game appeared or restarted — connect.
-					base, err := scanner.FindModuleBase(a.mem, found)
-					if err != nil {
-						continue
-					}
-					a.trainerMu.Lock()
-					tf := a.activeTrainer
-					a.trainerMu.Unlock()
-
-					if tf != nil && strings.EqualFold(tf.Exe, exe) {
-						// Resolve addresses outside the lock.
-						addrs := make([]uintptr, len(tf.Cheats))
-						for i, cheat := range tf.Cheats {
-							addrs[i], _ = a.resolveCheatAddr(found, base, cheat)
-						}
-						a.trainerMu.Lock()
-						a.stopAllFreezesLocked()
-						a.activePID = found
-						a.activeModBase = base
-						for i := range tf.Cheats {
-							a.cheatStates[i].addr = addrs[i]
-							a.cheatStates[i].enabled = false
-							a.cheatStates[i].cancelFreeze = nil
-						}
-						a.trainerMu.Unlock()
-					}
-
-				} else if found == 0 && currentPID != 0 {
-					// Game stopped — disconnect.
-					a.trainerMu.Lock()
-					a.stopAllFreezesLocked()
-					a.activePID = 0
-					a.activeModBase = 0
-					for i := range a.cheatStates {
-						a.cheatStates[i].enabled = false
-					}
-					a.trainerMu.Unlock()
-				}
 			}
 		}
 	}()
+}
+
+// watchTick runs one auto-connect/disconnect check: it connects when the game
+// appears (or restarts under a new PID) and disconnects when it stops. It is
+// idempotent — a no-op when already in the right state — so it is safe to call
+// directly (e.g. from LoadTrainer) as well as from the watcher goroutine.
+func (a *App) watchTick(exe string) {
+	a.trainerMu.Lock()
+	currentPID := a.activePID
+	a.trainerMu.Unlock()
+
+	procs, err := process.ListProcesses()
+	if err != nil {
+		return
+	}
+
+	found := 0
+	for _, p := range procs {
+		if strings.EqualFold(p.Name, exe) {
+			found = p.PID
+			break
+		}
+	}
+
+	switch {
+	case found != 0 && found != currentPID:
+		// Game appeared or restarted — connect.
+		base, err := scanner.FindModuleBase(a.mem, found)
+		if err != nil {
+			return
+		}
+		a.trainerMu.Lock()
+		tf := a.activeTrainer
+		a.trainerMu.Unlock()
+		if tf == nil || !strings.EqualFold(tf.Exe, exe) {
+			return
+		}
+		// Resolve addresses outside the lock (pointer reads can block).
+		addrs := make([]uintptr, len(tf.Cheats))
+		for i, cheat := range tf.Cheats {
+			addrs[i], _ = a.resolveCheatAddr(found, base, cheat)
+		}
+		a.trainerMu.Lock()
+		a.stopAllFreezesLocked()
+		a.activePID = found
+		a.activeModBase = base
+		for i := range tf.Cheats {
+			a.cheatStates[i].addr = addrs[i]
+			a.cheatStates[i].enabled = false
+			a.cheatStates[i].cancelFreeze = nil
+		}
+		a.trainerMu.Unlock()
+
+	case found == 0 && currentPID != 0:
+		// Game stopped — disconnect.
+		a.trainerMu.Lock()
+		a.stopAllFreezesLocked()
+		a.activePID = 0
+		a.activeModBase = 0
+		for i := range a.cheatStates {
+			a.cheatStates[i].enabled = false
+		}
+		a.trainerMu.Unlock()
+	}
 }
 
 func (a *App) stopWatcher() {
