@@ -22,6 +22,10 @@ export function GetModuleBase(arg1) {
   return window['go']['main']['App']['GetModuleBase'](arg1);
 }
 
+export function GetSettings() {
+  return window['go']['main']['App']['GetSettings']();
+}
+
 export function GetTrainerStatus() {
   return window['go']['main']['App']['GetTrainerStatus']();
 }
@@ -46,8 +50,16 @@ export function NarrowValue(arg1) {
   return window['go']['main']['App']['NarrowValue'](arg1);
 }
 
+export function PickTrainerDir() {
+  return window['go']['main']['App']['PickTrainerDir']();
+}
+
 export function ReadValue(arg1) {
   return window['go']['main']['App']['ReadValue'](arg1);
+}
+
+export function SaveSettings(arg1) {
+  return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
 export function ScanValue(arg1) {

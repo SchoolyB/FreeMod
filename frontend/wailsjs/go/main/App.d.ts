@@ -12,6 +12,8 @@ export function DisconnectTrainer():Promise<main.TrainerStatus>;
 
 export function GetModuleBase(arg1:number):Promise<string>;
 
+export function GetSettings():Promise<main.Settings>;
+
 export function GetTrainerStatus():Promise<main.TrainerStatus>;
 
 export function KillApp():Promise<void>;
@@ -24,7 +26,11 @@ export function LoadTrainer(arg1:string):Promise<main.TrainerStatus>;
 
 export function NarrowValue(arg1:number):Promise<main.ScanResult>;
 
+export function PickTrainerDir():Promise<string>;
+
 export function ReadValue(arg1:string):Promise<number>;
+
+export function SaveSettings(arg1:main.Settings):Promise<void>;
 
 export function ScanValue(arg1:number):Promise<main.ScanResult>;
 

@@ -46,6 +46,22 @@ export namespace main {
 	        this.Count = source["Count"];
 	    }
 	}
+	export class Settings {
+	    AutoConnect: boolean;
+	    FreezeIntervalMs: number;
+	    TrainerDir: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Settings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.AutoConnect = source["AutoConnect"];
+	        this.FreezeIntervalMs = source["FreezeIntervalMs"];
+	        this.TrainerDir = source["TrainerDir"];
+	    }
+	}
 	export class TrainerStatus {
 	    Game: string;
 	    Exe: string;

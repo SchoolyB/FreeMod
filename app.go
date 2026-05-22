@@ -60,9 +60,6 @@ type TrainerStatus struct {
 	Cheats    []CheatState `json:"Cheats"`
 }
 
-// freezeInterval is how often a frozen cheat re-writes its value.
-const freezeInterval = 100 * time.Millisecond
-
 // ── internal cheat state ──────────────────────────────────────────────────────
 
 type activeCheat struct {
@@ -76,8 +73,9 @@ type activeCheat struct {
 // ── App ───────────────────────────────────────────────────────────────────────
 
 type App struct {
-	ctx context.Context
-	mem memory.Memory
+	ctx      context.Context
+	mem      memory.Memory
+	settings Settings
 
 	// dev-mode scanner state
 	devMu        sync.Mutex
@@ -101,11 +99,12 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.settings = loadSettings()
 }
 
 // ── Trainer methods ───────────────────────────────────────────────────────────
 
-// userTrainerDir returns (and creates) ~/Library/Application Support/FreeMod/trainers/
+// userTrainerDir returns (and creates) the default ~/Library/Application Support/FreeMod/trainers/
 func userTrainerDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -116,6 +115,18 @@ func userTrainerDir() (string, error) {
 		return "", err
 	}
 	return dir, nil
+}
+
+// resolvedTrainerDir returns the active trainer directory — the custom path
+// from settings if set, otherwise the default user trainer dir.
+func (a *App) resolvedTrainerDir() (string, error) {
+	if a.settings.TrainerDir != "" {
+		if err := os.MkdirAll(a.settings.TrainerDir, 0755); err != nil {
+			return "", err
+		}
+		return a.settings.TrainerDir, nil
+	}
+	return userTrainerDir()
 }
 
 // ListTrainers returns built-in trainers merged with any user-added ones.
@@ -132,7 +143,7 @@ func (a *App) ListTrainers() ([]TrainerSummary, error) {
 	}
 
 	// User trainers
-	userDir, err := userTrainerDir()
+	userDir, err := a.resolvedTrainerDir()
 	if err == nil {
 		userFS := os.DirFS(userDir)
 		userList, _ := trainers.ListFromFS(userFS)
@@ -159,9 +170,9 @@ func (a *App) ListTrainers() ([]TrainerSummary, error) {
 	return out, nil
 }
 
-// UserTrainerDir exposes the user trainer directory path to the frontend.
+// UserTrainerDir exposes the active trainer directory path to the frontend.
 func (a *App) UserTrainerDir() string {
-	dir, _ := userTrainerDir()
+	dir, _ := a.resolvedTrainerDir()
 	return dir
 }
 
@@ -173,7 +184,7 @@ func (a *App) TrainerImage(filename string) string {
 	var readImage func(name string) ([]byte, error)
 
 	if strings.HasPrefix(filename, "user:") {
-		userDir, err := userTrainerDir()
+		userDir, err := a.resolvedTrainerDir()
 		if err != nil {
 			return ""
 		}
@@ -233,7 +244,7 @@ func (a *App) LoadTrainer(filename string) (TrainerStatus, error) {
 
 	if strings.HasPrefix(filename, "user:") {
 		name := strings.TrimPrefix(filename, "user:")
-		userDir, dirErr := userTrainerDir()
+		userDir, dirErr := a.resolvedTrainerDir()
 		if dirErr != nil {
 			return TrainerStatus{}, dirErr
 		}
@@ -257,10 +268,12 @@ func (a *App) LoadTrainer(filename string) (TrainerStatus, error) {
 	a.cheatStates = make([]activeCheat, len(tf.Cheats))
 	a.trainerMu.Unlock()
 
-	// Start the auto-connect watcher, then connect right now if the game is
-	// already running — so LoadTrainer returns an accurate (often already
-	// connected) status instead of waiting for the first watcher tick.
-	a.startWatcher(tf.Exe)
+	// Start the auto-connect watcher (if enabled), then connect right now if
+	// the game is already running — so LoadTrainer returns an accurate (often
+	// already connected) status instead of waiting for the first watcher tick.
+	if a.settings.AutoConnect {
+		a.startWatcher(tf.Exe)
+	}
 	a.watchTick(tf.Exe)
 
 	return a.buildStatus(), nil
@@ -362,11 +375,12 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 
 		pid := a.activePID
 		mem := a.mem
+		interval := time.Duration(a.settings.FreezeIntervalMs) * time.Millisecond
 		ctx, cancel := context.WithCancel(context.Background())
 		state.cancelFreeze = cancel
 
 		go func() {
-			ticker := time.NewTicker(freezeInterval)
+			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 			for {
 				select {
@@ -454,6 +468,45 @@ func (a *App) buildStatusLocked() TrainerStatus {
 		Connected: a.activePID > 0,
 		Cheats:    cheats,
 	}
+}
+
+// ── Settings methods ──────────────────────────────────────────────────────────
+
+func (a *App) GetSettings() Settings {
+	return a.settings
+}
+
+func (a *App) SaveSettings(s Settings) error {
+	s = clampSettings(s)
+	prev := a.settings
+	a.settings = s
+	if err := s.save(); err != nil {
+		a.settings = prev
+		return err
+	}
+	// React to auto-connect toggle.
+	if prev.AutoConnect && !s.AutoConnect {
+		a.stopWatcher()
+	} else if !prev.AutoConnect && s.AutoConnect {
+		a.trainerMu.Lock()
+		tf := a.activeTrainer
+		a.trainerMu.Unlock()
+		if tf != nil {
+			a.startWatcher(tf.Exe)
+		}
+	}
+	return nil
+}
+
+// PickTrainerDir opens a native directory picker and returns the chosen path.
+func (a *App) PickTrainerDir() string {
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Trainer Directory",
+	})
+	if err != nil || dir == "" {
+		return ""
+	}
+	return dir
 }
 
 // ── Dev-mode methods ──────────────────────────────────────────────────────────
