@@ -1,6 +1,8 @@
 # FreeMod
 
-Free, open source single-player game trainer for macOS. Works like WeMod — pick a game, flip a switch, cheat. No accounts, no paywalls.
+WeMod wants your money. Cheat Engine wants your sanity. FreeMod wants neither.
+
+Open source, no accounts, no paywalls. Pick a game, flip a switch, cheat.
 
 ---
 
