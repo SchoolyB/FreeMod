@@ -46,6 +46,10 @@ export function ToggleCheat(arg1, arg2, arg3) {
   return window['go']['main']['App']['ToggleCheat'](arg1, arg2, arg3);
 }
 
+export function TrainerImage(arg1) {
+  return window['go']['main']['App']['TrainerImage'](arg1);
+}
+
 export function UserTrainerDir() {
   return window['go']['main']['App']['UserTrainerDir']();
 }

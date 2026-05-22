@@ -6,6 +6,7 @@ import {
   ToggleCheat,
   GetTrainerStatus,
   UserTrainerDir,
+  TrainerImage,
   ListProcesses,
   AttachProcess,
   ScanValue,
@@ -107,6 +108,43 @@ function CheatCard({ cheat, disabled, onToggle }) {
   )
 }
 
+// ── Game Tile ─────────────────────────────────────────────────────────────────
+
+// tileColor derives a stable gradient from a game name, for the no-art fallback.
+function tileColor(name) {
+  let h = 0
+  for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) % 360
+  return `linear-gradient(155deg, hsl(${h} 42% 30%), hsl(${(h + 45) % 360} 48% 17%))`
+}
+
+function GameTile({ trainer, onSelect }) {
+  const [art, setArt] = useState(null) // null = loading, '' = no art, else data URI
+
+  useEffect(() => {
+    let alive = true
+    TrainerImage(trainer.Filename)
+      .then(d => { if (alive) setArt(d || '') })
+      .catch(() => { if (alive) setArt('') })
+    return () => { alive = false }
+  }, [trainer.Filename])
+
+  return (
+    <button className="game-tile" onClick={onSelect}>
+      <div className="game-tile-art">
+        {art ? (
+          <img src={art} alt={trainer.Game} />
+        ) : (
+          <div className="game-tile-fallback" style={{ background: tileColor(trainer.Game) }}>
+            {(trainer.Game || '?').trim().charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="game-tile-name">{trainer.Game}</div>
+      <div className="game-tile-meta">{trainer.Exe} · v{trainer.Version}</div>
+    </button>
+  )
+}
+
 // ── TRAINER TAB ───────────────────────────────────────────────────────────────
 
 function TrainerTab() {
@@ -183,80 +221,67 @@ function TrainerTab() {
 
   return (
     <div className="trainer-tab">
-      {/* Left — game list */}
-      <aside className="game-list">
-        <div className="panel-header">
-          Games
-          <button
-            className="folder-btn"
-            title="Open trainer folder"
-            onClick={async () => {
-              const dir = await UserTrainerDir()
-              BrowserOpenURL('file://' + dir)
-            }}
-          >📂</button>
-        </div>
-        {loadingList && <div className="empty"><Spinner /></div>}
-        {listErr && <div className="panel-error">{listErr}</div>}
-        {list.map(t => (
-          <div
-            key={t.Filename}
-            className={`game-card ${status && status.Game === t.Game ? 'active' : ''}`}
-            onClick={() => selectTrainer(t.Filename)}
-          >
-            <div className="game-card-name">{t.Game}</div>
-            <div className="game-card-meta">{t.Exe} · v{t.Version}</div>
+      {!status ? (
+        /* Gallery — cover-art grid of trainers */
+        <div className="gallery">
+          <div className="gallery-header">
+            <span className="gallery-title">Games</span>
+            <button
+              className="folder-btn"
+              title="Open trainer folder"
+              onClick={async () => {
+                const dir = await UserTrainerDir()
+                BrowserOpenURL('file://' + dir)
+              }}
+            >📂</button>
           </div>
-        ))}
-        {!loadingList && list.length === 0 && !listErr && (
-          <div className="empty">No trainers found</div>
-        )}
-      </aside>
+          {loadingList && <div className="empty"><Spinner /></div>}
+          {listErr && <div className="panel-error">{listErr}</div>}
+          {!loadingList && list.length === 0 && !listErr && (
+            <div className="empty">No trainers found</div>
+          )}
+          <div className="gallery-grid">
+            {list.map(t => (
+              <GameTile key={t.Filename} trainer={t} onSelect={() => selectTrainer(t.Filename)} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* Detail — the selected trainer's cheats */
+        <main className="trainer-detail">
+          <button className="back-btn" onClick={() => setStatus(null)}>← All games</button>
 
-      {/* Right — trainer detail */}
-      <main className="trainer-detail">
-        {!status ? (
-          <div className="empty-detail">Select a game to get started</div>
-        ) : (
-          <>
-            {/* Game header */}
-            <div className="trainer-header">
-              <div className="trainer-title">
-                <h1>{status.Game}</h1>
-                <span className="trainer-meta">{status.Exe} · v{status.Version}</span>
-              </div>
-              <div className="trainer-connect">
-                {status.Connected ? (
-                  <span className="badge running">Running · PID {status.PID}</span>
-                ) : (
-                  <span className="badge stopped">Not Running</span>
-                )}
-                <button
-                  className="connect-btn"
-                  onClick={connect}
-                  disabled={connecting}
-                >
-                  {connecting ? <Spinner /> : status.Connected ? 'Reconnect' : 'Connect'}
-                </button>
-              </div>
+          <div className="trainer-header">
+            <div className="trainer-title">
+              <h1>{status.Game}</h1>
+              <span className="trainer-meta">{status.Exe} · v{status.Version}</span>
             </div>
-
-            {actionErr && <div className="action-error">{actionErr}</div>}
-
-            {/* Cheat list */}
-            <div className="cheat-list">
-              {(status.Cheats || []).map((cheat, idx) => (
-                <CheatCard
-                  key={idx}
-                  cheat={cheat}
-                  disabled={!status.Connected || toggling === idx}
-                  onToggle={(on, userValue) => toggleCheat(idx, on, userValue)}
-                />
-              ))}
+            <div className="trainer-connect">
+              {status.Connected ? (
+                <span className="badge running">Running · PID {status.PID}</span>
+              ) : (
+                <span className="badge stopped">Not Running</span>
+              )}
+              <button className="connect-btn" onClick={connect} disabled={connecting}>
+                {connecting ? <Spinner /> : status.Connected ? 'Reconnect' : 'Connect'}
+              </button>
             </div>
-          </>
-        )}
-      </main>
+          </div>
+
+          {actionErr && <div className="action-error">{actionErr}</div>}
+
+          <div className="cheat-list">
+            {(status.Cheats || []).map((cheat, idx) => (
+              <CheatCard
+                key={idx}
+                cheat={cheat}
+                disabled={!status.Connected || toggling === idx}
+                onToggle={(on, userValue) => toggleCheat(idx, on, userValue)}
+              />
+            ))}
+          </div>
+        </main>
+      )}
     </div>
   )
 }

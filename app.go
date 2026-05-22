@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io/fs"
@@ -161,6 +162,66 @@ func (a *App) ListTrainers() ([]TrainerSummary, error) {
 func (a *App) UserTrainerDir() string {
 	dir, _ := userTrainerDir()
 	return dir
+}
+
+// TrainerImage returns the trainer's cover art as a data: URI, or "" if the
+// trainer declares no image or it can't be read. filename is the value from
+// ListTrainers (a built-in name, or "user:"-prefixed for user trainers).
+func (a *App) TrainerImage(filename string) string {
+	var tf *trainers.TrainerFile
+	var readImage func(name string) ([]byte, error)
+
+	if strings.HasPrefix(filename, "user:") {
+		userDir, err := userTrainerDir()
+		if err != nil {
+			return ""
+		}
+		tf, err = trainers.LoadFromFile(filepath.Join(userDir, strings.TrimPrefix(filename, "user:")))
+		if err != nil {
+			return ""
+		}
+		readImage = func(name string) ([]byte, error) { return os.ReadFile(filepath.Join(userDir, name)) }
+	} else {
+		sub, err := fs.Sub(trainersFS, "trainers")
+		if err != nil {
+			return ""
+		}
+		tf, err = trainers.LoadFromFS(sub, filename)
+		if err != nil {
+			return ""
+		}
+		readImage = func(name string) ([]byte, error) { return fs.ReadFile(sub, name) }
+	}
+
+	if tf.Image == "" {
+		return ""
+	}
+	mime := imageMime(tf.Image)
+	if mime == "" {
+		return ""
+	}
+	// The image must sit next to the trainer JSON — basename only, no traversal.
+	data, err := readImage(filepath.Base(tf.Image))
+	if err != nil {
+		return ""
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
+}
+
+// imageMime maps a filename extension to an image MIME type, or "" if unknown.
+func imageMime(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	default:
+		return ""
+	}
 }
 
 // LoadTrainer loads a trainer and returns its current status (not yet connected).

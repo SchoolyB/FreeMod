@@ -25,6 +25,7 @@ type TrainerFile struct {
 	Game    string  `json:"game"`
 	Exe     string  `json:"exe"`     // process name to match (without .exe on macOS)
 	Version string  `json:"version"` // game version this trainer targets
+	Image   string  `json:"image"`   // optional cover-art filename, alongside this JSON
 	Cheats  []Cheat `json:"cheats"`
 }
 

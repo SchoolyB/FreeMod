@@ -2,6 +2,7 @@
   "game": "FreeMod Demo Target",
   "exe": "target",
   "version": "1.0",
+  "image": "target.png",
   "cheats": [
     {
       "name": "Infinite Health",

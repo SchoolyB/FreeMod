@@ -24,6 +24,8 @@ export function ScanValue(arg1:number):Promise<main.ScanResult>;
 
 export function ToggleCheat(arg1:number,arg2:boolean,arg3:number):Promise<main.TrainerStatus>;
 
+export function TrainerImage(arg1:string):Promise<string>;
+
 export function UserTrainerDir():Promise<string>;
 
 export function WriteValue(arg1:string,arg2:number):Promise<void>;
