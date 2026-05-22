@@ -566,6 +566,7 @@ function DevModeTab() {
   const [moduleBase, setModuleBase] = useState('')
   const [procs, setProcs] = useState([])
   const [filter, setFilter] = useState('')
+  const [sortBy, setSortBy] = useState('pid-asc')
   const [loadingProcs, setLoadingProcs] = useState(false)
   const [procErr, setProcErr] = useState(null)
 
@@ -609,6 +610,19 @@ function DevModeTab() {
     } finally {
       setLoadingProcs(false)
     }
+  }, [])
+
+  const detach = useCallback(async () => {
+    await StopTestFreeze().catch(() => {})
+    setFreezeActive(false)
+    setAttachedPID(0)
+    setAttachedName('')
+    setModuleBase('')
+    setAddresses([])
+    setScanHistory([])
+    setSelectedAddr(null)
+    setAllTypes(null)
+    showStatus('Detached.')
   }, [])
 
   const attach = useCallback(async (pid, name) => {
@@ -757,10 +771,21 @@ function DevModeTab() {
     }
   }, [writeAddr, writeVal])
 
-  const filtered = procs.filter(p =>
-    (p.Name || '').toLowerCase().includes(filter.toLowerCase()) ||
-    String(p.PID).includes(filter)
-  )
+  const SORT_CYCLE = ['pid-asc', 'pid-desc', 'name-asc', 'name-desc']
+  const SORT_LABEL = { 'pid-asc': 'PID ↑', 'pid-desc': 'PID ↓', 'name-asc': 'A→Z', 'name-desc': 'Z→A' }
+  const cycleSort = () => setSortBy(s => SORT_CYCLE[(SORT_CYCLE.indexOf(s) + 1) % SORT_CYCLE.length])
+
+  const filtered = procs
+    .filter(p =>
+      (p.Name || '').toLowerCase().includes(filter.toLowerCase()) ||
+      String(p.PID).includes(filter)
+    )
+    .sort((a, b) => {
+      if (sortBy === 'pid-asc')  return a.PID - b.PID
+      if (sortBy === 'pid-desc') return b.PID - a.PID
+      if (sortBy === 'name-asc') return (a.Name || '').localeCompare(b.Name || '')
+      return (b.Name || '').localeCompare(a.Name || '')
+    })
 
   // Compute offset when exactly 1 address found
   const singleOffset = addresses.length === 1 && moduleBase ? (() => {
@@ -824,17 +849,23 @@ function DevModeTab() {
               {loadingProcs ? <Spinner /> : 'Refresh'}
             </button>
           </div>
-          <input
-            className="dev-filter"
-            placeholder="Search..."
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-          />
+          <div className="dev-filter-row">
+            <input
+              className="dev-filter"
+              placeholder="Search..."
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+            />
+            <button className="dev-sort-btn" onClick={cycleSort} title="Cycle sort order">
+              {SORT_LABEL[sortBy]}
+            </button>
+          </div>
           {attachedPID > 0 && (
             <div className="dev-attached-badge">
               <span className="pulse-dot" />
-              {attachedName} · PID {attachedPID}
+              <span className="dev-attached-label">{attachedName} · PID {attachedPID}</span>
               {moduleBase && <span className="dev-base-tag">{moduleBase}</span>}
+              <button className="dev-detach-btn" onClick={detach} title="Detach process">✕</button>
             </div>
           )}
           {procErr && <div className="panel-error">{procErr}</div>}
@@ -1408,7 +1439,12 @@ export default function App() {
   const applyScale = (val) => {
     setUiScale(val)
     localStorage.setItem(UI_SCALE_KEY, val)
+    document.documentElement.style.zoom = val
   }
+
+  useEffect(() => {
+    document.documentElement.style.zoom = uiScale
+  }, [])
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -1435,7 +1471,7 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app" data-theme={theme} style={{ zoom: uiScale, height: `${100 / uiScale}vh`, width: `${100 / uiScale}vw` }}>
+      <div className="app" data-theme={theme}>
         {/* Premium WeMod style Sidebar */}
         <aside className="sidebar">
           <div className="sidebar-header">
