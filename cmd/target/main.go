@@ -9,6 +9,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -39,7 +40,7 @@ func main() {
 	fmt.Println()
 
 	for {
-		fmt.Printf("health = %d\n", health)
+		fmt.Printf("health = %d\n", atomic.LoadInt32(&health))
 		time.Sleep(1 * time.Second)
 	}
 }

@@ -141,6 +141,21 @@ html, body, #root { height: 100%; background: var(--bg); color: var(--text); fon
 .connect-btn:hover:not(:disabled) { opacity: 0.85; }
 .connect-btn:disabled { opacity: 0.4; cursor: default; }
 
+.disconnect-btn {
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.35);
+  border-radius: 6px; color: #f87171; font-family: var(--font);
+  font-size: 12px; font-weight: 600; padding: 6px 16px; cursor: pointer;
+  transition: background 0.15s;
+}
+.disconnect-btn:hover { background: rgba(239,68,68,0.28); }
+
+.kill-btn {
+  background: #7f1d1d; border: none; border-radius: 6px;
+  color: #fca5a5; font-family: var(--font); font-size: 11px; font-weight: 700;
+  padding: 5px 12px; cursor: pointer; transition: background 0.15s; margin-left: auto;
+}
+.kill-btn:hover { background: #991b1b; }
+
 .action-error {
   background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
   border-radius: var(--radius); color: #f87171; font-size: 12px;
@@ -267,6 +282,18 @@ html, body, #root { height: 100%; background: var(--bg); color: var(--text); fon
 .dev-row input:focus { border-color: var(--accent); }
 .dev-row input:disabled { opacity: 0.4; }
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.dev-module-base {
+  padding: 5px 12px; font-size: 11px; color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.dev-module-base code { color: var(--accent); font-size: 11px; }
+
+.dev-offset-hint {
+  padding: 5px 12px; font-size: 11px; color: var(--text-dim);
+  background: var(--surface2); border-bottom: 1px solid var(--border);
+}
+.dev-offset-hint code { color: #4caf50; font-size: 11px; }
 
 .dev-results-hdr {
   padding: 5px 12px; font-size: 11px; color: var(--text-dim);

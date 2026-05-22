@@ -25,48 +25,38 @@ It is **not** an anti-cheat bypass. Single-player only.
 ## Install
 
 ```bash
-git clone https://github.com/freemod/freemod
+git clone https://github.com/SchoolyB/freemod
 cd freemod
 make build
 ```
 
-`make build` compiles the app to `build/bin/freemod.app`, builds a demo process
-at `build/bin/target` (see [Try the demo](#try-the-demo)), and code-signs the
-app so it can read game memory without root. It wraps `wails build` — run
-either. `make help` lists all targets.
+`make help` lists all available targets.
 
 ---
 
 ## Try the demo
 
-FreeMod ships with a **FreeMod Demo Target** trainer paired with a tiny demo
-process (`build/bin/target`) — so you can see a cheat work without a real game.
+FreeMod ships with a **FreeMod Demo Target** trainer and a small demo process so you can see cheats work without a real game.
 
 In two terminals:
 
 ```bash
-./build/bin/target          # terminal 1 — the process to cheat on
-open build/bin/freemod.app  # terminal 2 — FreeMod
+# terminal 1
+build/bin/freemod-demo
+
+# terminal 2
+make dev
 ```
 
-In FreeMod: select **FreeMod Demo Target**, wait ~2s for it to auto-connect,
-then toggle **Infinite Health** — `health` in terminal 1 locks at 9999.
-
-> Clicking Connect with no `target` process running gives `"target" is not
-> running` — that's expected; start `./build/bin/target` first.
+In FreeMod: select **FreeMod Demo Target**, wait a moment for it to auto-connect, then toggle **Infinite Health** — the health value in terminal 1 locks at 9999.
 
 ---
 
 ## Usage
 
 ```bash
-open build/bin/freemod.app
+make dev
 ```
-
-No `sudo`: `make build` code-signs FreeMod with the `com.apple.security.cs.debugger`
-entitlement — the same one `lldb` uses — so it reads and writes process memory
-without root. It can only touch processes **you** own (your single-player games),
-never another user's or the system's.
 
 ### Trainers tab
 
@@ -101,9 +91,7 @@ Trainer format:
 
 Supported types: `int32`, `int64`, `float32`.
 
-`image` is optional — a cover-art file (PNG/JPG/WebP) in the same folder as the
-trainer JSON, shown in the game gallery. Vertical 2:3 art looks best; without
-it the game gets a lettered placeholder tile.
+`image` is optional — a cover-art file (PNG/JPG/WebP) in the same folder as the trainer JSON, shown in the game gallery. Vertical 2:3 art looks best; without it the game gets a lettered placeholder tile.
 
 For dynamic memory, add an `"offsets"` array to walk a pointer chain:
 
@@ -116,11 +104,11 @@ For dynamic memory, add an `"offsets"` array to walk a pointer chain:
 
 Use Dev Mode to find memory addresses in an unknown game:
 
-1. Click **Refresh** and select the target process.
+1. Click **Refresh** and select the game process.
 2. Enter the current value and click **Scan**.
 3. Change the value in-game, enter the new value, click **Narrow**.
-4. Repeat until one address remains.
-5. Click the address to copy it to the Write panel, then write any value.
+4. Repeat until one address remains — the `base_offset` is shown automatically.
+5. Click the address to copy it to the Write panel to test writing a value.
 
 Once you have a stable address or pointer chain, add it to a trainer JSON.
 
@@ -128,26 +116,15 @@ Once you have a stable address or pointer chain, add it to a trainer JSON.
 
 ## Development
 
-The demo target is a separate process FreeMod connects to, so iterating uses
-two terminals. Build once so `build/bin/target` exists:
-
 ```bash
-make build
+make build           # build app + demo process
+build/bin/freemod-demo  # terminal 1 — leave running; prints health each second
+make dev             # terminal 2 — live reload
 ```
 
-Then run, in two terminals:
+In the GUI, select **FreeMod Demo Target** — it connects on the spot — and toggle **Infinite Health**; terminal 1 flips to `health = 9999`.
 
-```bash
-./build/bin/target   # terminal 1 — leave running; prints `health` each second
-make dev             # terminal 2 — live reload, devtools with Cmd+Option+I
-```
-
-In the GUI, select **FreeMod Demo Target** — it connects on the spot — and
-toggle **Infinite Health**; terminal 1 flips to `health = 9999`.
-
-> `target` prints a `Static offset` on startup — the value `target.json` uses
-> as `base_offset`. If toggling doesn't move `health`, that offset no longer
-> matches `trainers/target.json`; update the JSON to match.
+> `freemod-demo` prints a `Static offset` on startup. `make build` patches this into `trainers/target.json` automatically, so the demo always works after a fresh build.
 
 ---
 

@@ -7,8 +7,11 @@ import {
   GetTrainerStatus,
   UserTrainerDir,
   TrainerImage,
+  DisconnectTrainer,
+  KillApp,
   ListProcesses,
   AttachProcess,
+  GetModuleBase,
   ScanValue,
   NarrowValue,
   WriteValue,
@@ -206,6 +209,15 @@ function TrainerTab() {
     }
   }, [])
 
+  const disconnect = useCallback(async () => {
+    try {
+      const s = await DisconnectTrainer()
+      setStatus(s)
+    } catch (e) {
+      setActionErr(String(e))
+    }
+  }, [])
+
   const toggleCheat = useCallback(async (idx, enable, userValue = 0) => {
     setToggling(idx)
     setActionErr(null)
@@ -265,6 +277,11 @@ function TrainerTab() {
               <button className="connect-btn" onClick={connect} disabled={connecting}>
                 {connecting ? <Spinner /> : status.Connected ? 'Reconnect' : 'Connect'}
               </button>
+              {status.Connected && (
+                <button className="disconnect-btn" onClick={disconnect}>
+                  Disconnect
+                </button>
+              )}
             </div>
           </div>
 
@@ -291,6 +308,7 @@ function TrainerTab() {
 function DevModeTab() {
   const [attachedPID, setAttachedPID] = useState(0)
   const [attachedName, setAttachedName] = useState('')
+  const [moduleBase, setModuleBase] = useState('')
   const [procs, setProcs] = useState([])
   const [filter, setFilter] = useState('')
   const [loadingProcs, setLoadingProcs] = useState(false)
@@ -328,7 +346,10 @@ function DevModeTab() {
       setAttachedPID(pid)
       setAttachedName(name)
       setAddresses([])
+      setModuleBase('')
       showStatus(`Attached to ${name} (PID ${pid})`)
+      const base = await GetModuleBase(pid)
+      setModuleBase(base || '')
     } catch (e) {
       showStatus(String(e), true)
     }
@@ -401,6 +422,9 @@ function DevModeTab() {
             value={filter}
             onChange={e => setFilter(e.target.value)}
           />
+          {moduleBase && (
+            <div className="dev-module-base">Module base: <code>{moduleBase}</code></div>
+          )}
           {procErr && <div className="panel-error">{procErr}</div>}
           <div className="dev-proc-list">
             {filtered.length === 0 && !procErr && (
@@ -444,6 +468,12 @@ function DevModeTab() {
                 : 'No results'}
               {addresses.length === 1 && <span className="found-badge">Found!</span>}
             </div>
+            {addresses.length === 1 && moduleBase && (() => {
+              const addr = BigInt(addresses[0])
+              const base = BigInt(moduleBase)
+              const offset = '0x' + (addr - base).toString(16)
+              return <div className="dev-offset-hint">base_offset: <code>{offset}</code></div>
+            })()}
             <div className="dev-addr-list">
               {(addresses.length > 200 ? addresses.slice(0, 200) : addresses).map(addr => (
                 <div key={addr} className="dev-addr-row" onClick={() => setWriteAddr(addr)}>
@@ -518,6 +548,9 @@ export default function App() {
               Dev Mode
             </button>
           </nav>
+          <button className="kill-btn" onClick={() => KillApp()} title="Stop all cheats and close">
+            Kill &amp; Close
+          </button>
         </header>
 
         <div className="app-body">

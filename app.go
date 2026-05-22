@@ -19,6 +19,7 @@ import (
 	"github.com/freemod/freemod/core/process"
 	"github.com/freemod/freemod/core/scanner"
 	"github.com/freemod/freemod/trainers"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 //go:embed all:trainers
@@ -337,6 +338,8 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 		return TrainerStatus{}, fmt.Errorf("address not resolved for %q", cheat.Name)
 	}
 
+	// fmt.Printf("[toggle] PID=%d base=0x%x addr=0x%x enable=%v\n", a.activePID, a.activeModBase, addr, enable)
+
 	if enable && !state.enabled {
 		size := cheatTypeSize(cheat.Type)
 		// Read and save original bytes.
@@ -392,9 +395,54 @@ func (a *App) ToggleCheat(idx int, enable bool, userValue float64) (TrainerStatu
 	return a.buildStatusLocked(), nil
 }
 
+// DebugTrainerState returns a human-readable dump of the current trainer state.
+// Used to diagnose address resolution issues.
+func (a *App) DebugTrainerState() string {
+	a.trainerMu.Lock()
+	defer a.trainerMu.Unlock()
+	if a.activeTrainer == nil {
+		return "no trainer loaded"
+	}
+	lines := fmt.Sprintf("PID=%d  base=0x%x\n", a.activePID, a.activeModBase)
+	for i, c := range a.activeTrainer.Cheats {
+		lines += fmt.Sprintf("  cheat[%d] %q  base_offset=%s  resolved=0x%x\n",
+			i, c.Name, c.BaseOffset, a.cheatStates[i].addr)
+	}
+	return lines
+}
+
 // GetTrainerStatus returns the current trainer status without changing anything.
 func (a *App) GetTrainerStatus() TrainerStatus {
 	return a.buildStatus()
+}
+
+// DisconnectTrainer restores all original values, stops freeze goroutines,
+// and detaches from the game. The game goes back to its normal state.
+func (a *App) DisconnectTrainer() TrainerStatus {
+	a.stopWatcher()
+	a.trainerMu.Lock()
+	pid := a.activePID
+	for i := range a.cheatStates {
+		state := &a.cheatStates[i]
+		if state.cancelFreeze != nil {
+			state.cancelFreeze()
+			state.cancelFreeze = nil
+		}
+		if state.enabled && len(state.restoreBytes) > 0 && state.addr != 0 {
+			_ = a.mem.WriteBytes(pid, state.addr, state.restoreBytes)
+		}
+		state.enabled = false
+	}
+	a.activePID = 0
+	a.activeModBase = 0
+	a.trainerMu.Unlock()
+	return a.buildStatus()
+}
+
+// KillApp disconnects (restoring all cheat values) then closes the app.
+func (a *App) KillApp() {
+	a.DisconnectTrainer()
+	runtime.Quit(a.ctx)
 }
 
 func (a *App) buildStatus() TrainerStatus {
@@ -438,6 +486,14 @@ func (a *App) ListProcesses() ([]ProcessInfo, error) {
 		result[i] = ProcessInfo{PID: p.PID, Name: p.Name}
 	}
 	return result, nil
+}
+
+func (a *App) GetModuleBase(pid int) string {
+	base, err := scanner.FindModuleBase(a.mem, pid)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("0x%x", base)
 }
 
 func (a *App) AttachProcess(pid int) error {

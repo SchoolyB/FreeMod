@@ -14,8 +14,24 @@ export function ConnectTrainer() {
   return window['go']['main']['App']['ConnectTrainer']();
 }
 
+export function DebugTrainerState() {
+  return window['go']['main']['App']['DebugTrainerState']();
+}
+
+export function DisconnectTrainer() {
+  return window['go']['main']['App']['DisconnectTrainer']();
+}
+
+export function GetModuleBase(arg1) {
+  return window['go']['main']['App']['GetModuleBase'](arg1);
+}
+
 export function GetTrainerStatus() {
   return window['go']['main']['App']['GetTrainerStatus']();
+}
+
+export function KillApp() {
+  return window['go']['main']['App']['KillApp']();
 }
 
 export function ListProcesses() {

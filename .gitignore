@@ -4,6 +4,10 @@ build/bin/
 /freemod-cli
 /cli
 /target
+/freemod-demo
+
+# Auto-patched by make build — offsets are machine-specific
+trainers/target.json
 
 # macOS
 .DS_Store
