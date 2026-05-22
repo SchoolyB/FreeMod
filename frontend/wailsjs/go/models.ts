@@ -36,6 +36,65 @@ export namespace main {
 	        this.Input = source["Input"];
 	    }
 	}
+	export class PointerChainStep {
+	    Offset: string;
+	    ReadAddr: string;
+	    PointerVal: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PointerChainStep(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.Offset = source["Offset"];
+	        this.ReadAddr = source["ReadAddr"];
+	        this.PointerVal = source["PointerVal"];
+	    }
+	}
+	export class PointerChainResult {
+	    StartAddr: string;
+	    Steps: PointerChainStep[];
+	    FinalAddr: string;
+	    FinalInt32: number;
+	    FinalFloat32: number;
+	    Valid: boolean;
+	    Err: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PointerChainResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.StartAddr = source["StartAddr"];
+	        this.Steps = this.convertValues(source["Steps"], PointerChainStep);
+	        this.FinalAddr = source["FinalAddr"];
+	        this.FinalInt32 = source["FinalInt32"];
+	        this.FinalFloat32 = source["FinalFloat32"];
+	        this.Valid = source["Valid"];
+	        this.Err = source["Err"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class ProcessInfo {
 	    PID: number;
 	    Name: string;
@@ -68,6 +127,7 @@ export namespace main {
 	    AutoConnect: boolean;
 	    FreezeIntervalMs: number;
 	    TrainerDir: string;
+	    LaunchFullscreen: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -78,6 +138,7 @@ export namespace main {
 	        this.AutoConnect = source["AutoConnect"];
 	        this.FreezeIntervalMs = source["FreezeIntervalMs"];
 	        this.TrainerDir = source["TrainerDir"];
+	        this.LaunchFullscreen = source["LaunchFullscreen"];
 	    }
 	}
 	export class TrainerStatus {

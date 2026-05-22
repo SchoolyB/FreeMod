@@ -24,6 +24,9 @@ import {
   SaveSettings,
   PickTrainerDir,
   SetFullscreen,
+  ScanValueFloat,
+  NarrowValueFloat,
+  WalkPointerChain,
 } from '../wailsjs/go/main/App'
 import { BrowserOpenURL } from '../wailsjs/runtime/runtime'
 
@@ -349,6 +352,137 @@ function TrainerTab({ status, setStatus }) {
 
 // ── DEV MODE TAB ──────────────────────────────────────────────────────────────
 
+// ── Pointer Chain Builder ─────────────────────────────────────────────────────
+
+function PointerChainBuilder({ attachedPID }) {
+  const [baseOffset, setBaseOffset] = useState('')
+  const [offsets, setOffsets] = useState([''])
+  const [result, setResult] = useState(null)
+  const [walking, setWalking] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const updateOffset = (i, val) => {
+    setOffsets(prev => { const next = [...prev]; next[i] = val; return next })
+  }
+
+  const addOffset = () => setOffsets(prev => [...prev, ''])
+  const removeOffset = (i) => setOffsets(prev => prev.filter((_, j) => j !== i))
+
+  const walk = async () => {
+    if (!baseOffset) return
+    setWalking(true)
+    setErr(null)
+    setResult(null)
+    try {
+      const r = await WalkPointerChain(baseOffset, offsets.filter(o => o.trim() !== ''))
+      if (r.Err) {
+        setErr(r.Err)
+      } else {
+        setResult(r)
+      }
+    } catch (e) {
+      setErr(String(e))
+    } finally {
+      setWalking(false)
+    }
+  }
+
+  const copyChain = () => {
+    if (!result) return
+    const snippet = JSON.stringify({
+      base_offset: baseOffset,
+      offsets: offsets.filter(o => o.trim() !== ''),
+    }, null, 2)
+    navigator.clipboard.writeText(snippet)
+  }
+
+  return (
+    <section className="dev-card dev-card-ptr-chain">
+      <div className="dev-card-header"><span>Pointer Chain Builder</span></div>
+      <div className="ptr-chain-hint">
+        Enter a base offset (from module base) and pointer offsets to walk a chain and resolve the final address.
+      </div>
+
+      <div className="ptr-chain-row">
+        <span className="ptr-chain-label">Base offset</span>
+        <input
+          className="ptr-chain-input"
+          placeholder="e.g. 0x15c344"
+          value={baseOffset}
+          onChange={e => setBaseOffset(e.target.value)}
+          disabled={walking}
+        />
+      </div>
+
+      <div className="ptr-chain-offsets">
+        <div className="ptr-chain-offsets-hdr">
+          <span className="ptr-chain-label">Pointer offsets</span>
+          <button className="ptr-chain-add-btn" onClick={addOffset} disabled={walking}>+ Add</button>
+        </div>
+        {offsets.map((off, i) => (
+          <div key={i} className="ptr-chain-offset-row">
+            <span className="ptr-chain-step-num">[{i}]</span>
+            <input
+              className="ptr-chain-input"
+              placeholder="e.g. 0x40"
+              value={off}
+              onChange={e => updateOffset(i, e.target.value)}
+              disabled={walking}
+            />
+            {offsets.length > 1 && (
+              <button className="ptr-chain-remove-btn" onClick={() => removeOffset(i)} disabled={walking}>✕</button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="ptr-chain-actions">
+        <button
+          className="ptr-chain-walk-btn"
+          onClick={walk}
+          disabled={!attachedPID || !baseOffset || walking}
+        >
+          {walking ? <Spinner /> : 'Walk Chain'}
+        </button>
+      </div>
+
+      {err && <div className="ptr-chain-error">{err}</div>}
+
+      {result && (
+        <div className="ptr-chain-result">
+          <div className="ptr-chain-result-hdr">
+            <span>Result</span>
+            <button className="copy-btn" onClick={copyChain}>Copy JSON</button>
+          </div>
+          <div className="ptr-chain-result-start">
+            Start: <code>{result.StartAddr}</code>
+          </div>
+          {result.Steps.map((step, i) => (
+            <div key={i} className="ptr-chain-step">
+              <span className="ptr-chain-step-num">[{i}]</span>
+              <span className="ptr-chain-step-off">+{step.Offset}</span>
+              <span className="ptr-chain-step-arrow">→</span>
+              <code className="ptr-chain-step-addr">{step.ReadAddr}</code>
+              <span className="ptr-chain-step-arrow">→</span>
+              <code className="ptr-chain-step-ptr">{step.PointerVal}</code>
+            </div>
+          ))}
+          <div className="ptr-chain-final">
+            <span>Final address:</span>
+            <code>{result.FinalAddr}</code>
+          </div>
+          <div className="ptr-chain-values">
+            <span className="type-tag">int32</span>
+            <code>{result.FinalInt32}</code>
+            <span className="type-tag" style={{marginLeft:8}}>float32</span>
+            <code>{result.FinalFloat32?.toFixed(4)}</code>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function getScanHint(history, count, attached) {
   if (!attached) return 'Select a process from the left to begin.'
   if (history.length === 0) return 'Enter the current in-game value and click Scan.'
@@ -381,6 +515,7 @@ function DevModeTab() {
   // Scanner state
   const [addresses, setAddresses] = useState([])
   const [scanVal, setScanVal] = useState('')
+  const [scanType, setScanType] = useState('int32') // 'int32' or 'float32'
   const [scanning, setScanning] = useState(false)
   const [scanHistory, setScanHistory] = useState([]) // timeline entries
   const [selectedAddr, setSelectedAddr] = useState(null)
@@ -445,11 +580,11 @@ function DevModeTab() {
   }
 
   const doScan = useCallback(async () => {
-    const num = parseInt(scanVal, 10)
+    const num = scanType === 'float32' ? parseFloat(scanVal) : parseInt(scanVal, 10)
     if (isNaN(num)) return
     setScanning(true)
     try {
-      const r = await ScanValue(num)
+      const r = scanType === 'float32' ? await ScanValueFloat(num) : await ScanValue(num)
       setAddresses(r.Addresses || [])
       setSelectedAddr(null)
       setAllTypes(null)
@@ -461,14 +596,14 @@ function DevModeTab() {
     } finally {
       setScanning(false)
     }
-  }, [scanVal])
+  }, [scanVal, scanType])
 
   const doNarrow = useCallback(async () => {
-    const num = parseInt(scanVal, 10)
+    const num = scanType === 'float32' ? parseFloat(scanVal) : parseInt(scanVal, 10)
     if (isNaN(num)) return
     setScanning(true)
     try {
-      const r = await NarrowValue(num)
+      const r = scanType === 'float32' ? await NarrowValueFloat(num) : await NarrowValue(num)
       setAddresses(r.Addresses || [])
       setSelectedAddr(null)
       setAllTypes(null)
@@ -479,7 +614,7 @@ function DevModeTab() {
     } finally {
       setScanning(false)
     }
-  }, [scanVal])
+  }, [scanVal, scanType])
 
   const doModeScan = useCallback(async (mode) => {
     setScanning(true)
@@ -672,11 +807,28 @@ function DevModeTab() {
             {hint}
           </div>
 
+          {/* Scan type toggle */}
+          <div className="scan-type-row">
+            <span className="scan-mode-label">Value type:</span>
+            <div className="scan-type-toggle">
+              <button
+                className={`scan-type-btn ${scanType === 'int32' ? 'active' : ''}`}
+                onClick={() => { setScanType('int32'); setScanHistory([]); setAddresses([]) }}
+                disabled={scanning}
+              >int32</button>
+              <button
+                className={`scan-type-btn ${scanType === 'float32' ? 'active' : ''}`}
+                onClick={() => { setScanType('float32'); setScanHistory([]); setAddresses([]) }}
+                disabled={scanning}
+              >float32</button>
+            </div>
+          </div>
+
           {/* Scan controls */}
           <div className="dev-row">
             <input
               type="number"
-              placeholder="Known value (int32)..."
+              placeholder={`Known value (${scanType})...`}
               value={scanVal}
               onChange={e => setScanVal(e.target.value)}
               disabled={!attachedPID || scanning}
@@ -861,6 +1013,9 @@ function DevModeTab() {
               </div>
             </section>
           )}
+
+          {/* Pointer Chain Builder */}
+          <PointerChainBuilder attachedPID={attachedPID} />
 
           {/* Memory Editor */}
           <section className="dev-card dev-card-writer">

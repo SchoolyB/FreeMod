@@ -78,11 +78,13 @@ type App struct {
 	settings Settings
 
 	// dev-mode scanner state
-	devMu          sync.Mutex
-	devPID         int
-	devScanAddrs   []uintptr
-	devScanPrevVals []int32         // parallel to devScanAddrs: value at last scan
-	devTestCancel  context.CancelFunc // non-nil while a test-freeze goroutine runs
+	devMu            sync.Mutex
+	devPID           int
+	devScanAddrs     []uintptr
+	devScanType      string   // "int32" or "float32"
+	devScanPrevVals  []int32  // parallel to devScanAddrs: value at last scan (int32)
+	devScanPrevValsF []float32 // parallel to devScanAddrs: value at last scan (float32)
+	devTestCancel    context.CancelFunc // non-nil while a test-freeze goroutine runs
 
 	// trainer state
 	trainerMu     sync.Mutex
@@ -581,6 +583,8 @@ func (a *App) ScanValue(val int32) (ScanResult, error) {
 	a.devMu.Lock()
 	a.devScanAddrs = addrs
 	a.devScanPrevVals = prevVals
+	a.devScanType = "int32"
+	a.devScanPrevValsF = nil
 	a.devMu.Unlock()
 	return toScanResult(addrs), nil
 }
@@ -608,6 +612,61 @@ func (a *App) NarrowValue(val int32) (ScanResult, error) {
 	a.devMu.Lock()
 	a.devScanAddrs = addrs
 	a.devScanPrevVals = prevVals
+	a.devScanType = "int32"
+	a.devScanPrevValsF = nil
+	a.devMu.Unlock()
+	return toScanResult(addrs), nil
+}
+
+func (a *App) ScanValueFloat(val float32) (ScanResult, error) {
+	a.devMu.Lock()
+	pid := a.devPID
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return ScanResult{}, fmt.Errorf("no process attached")
+	}
+	addrs, err := scanner.ScanForFloat32(a.mem, pid, val)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	prevVals := make([]float32, len(addrs))
+	for i := range prevVals {
+		prevVals[i] = val
+	}
+	a.devMu.Lock()
+	a.devScanAddrs = addrs
+	a.devScanPrevValsF = prevVals
+	a.devScanType = "float32"
+	a.devScanPrevVals = nil
+	a.devMu.Unlock()
+	return toScanResult(addrs), nil
+}
+
+func (a *App) NarrowValueFloat(val float32) (ScanResult, error) {
+	a.devMu.Lock()
+	pid := a.devPID
+	prev := a.devScanAddrs
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return ScanResult{}, fmt.Errorf("no process attached")
+	}
+	if prev == nil {
+		return ScanResult{}, fmt.Errorf("no previous scan")
+	}
+	addrs, err := scanner.NarrowScanFloat32(a.mem, pid, prev, val)
+	if err != nil {
+		return ScanResult{}, err
+	}
+	prevVals := make([]float32, len(addrs))
+	for i := range prevVals {
+		prevVals[i] = val
+	}
+	a.devMu.Lock()
+	a.devScanAddrs = addrs
+	a.devScanPrevValsF = prevVals
+	a.devScanType = "float32"
 	a.devMu.Unlock()
 	return toScanResult(addrs), nil
 }
@@ -627,7 +686,9 @@ func (a *App) ScanByMode(mode string) (ScanResult, error) {
 	a.devMu.Lock()
 	pid := a.devPID
 	addrs := a.devScanAddrs
+	scanType := a.devScanType
 	prevVals := a.devScanPrevVals
+	prevValsF := a.devScanPrevValsF
 	a.devMu.Unlock()
 
 	if pid == 0 {
@@ -636,10 +697,26 @@ func (a *App) ScanByMode(mode string) (ScanResult, error) {
 	if addrs == nil {
 		return ScanResult{}, fmt.Errorf("no previous scan to narrow")
 	}
+
+	if scanType == "float32" {
+		if len(prevValsF) != len(addrs) {
+			return ScanResult{}, fmt.Errorf("scan state inconsistent — run a fresh Scan first")
+		}
+		survivors, newVals, err := scanner.NarrowFloat32ByMode(a.mem, pid, addrs, prevValsF, mode)
+		if err != nil {
+			return ScanResult{}, err
+		}
+		a.devMu.Lock()
+		a.devScanAddrs = survivors
+		a.devScanPrevValsF = newVals
+		a.devMu.Unlock()
+		return toScanResult(survivors), nil
+	}
+
+	// default: int32
 	if len(prevVals) != len(addrs) {
 		return ScanResult{}, fmt.Errorf("scan state inconsistent — run a fresh Scan first")
 	}
-
 	survivors, newVals, err := scanner.NarrowByMode(a.mem, pid, addrs, prevVals, mode)
 	if err != nil {
 		return ScanResult{}, err
@@ -728,6 +805,85 @@ func (a *App) ReadAllTypes(addrHex string) (AllTypesResult, error) {
 		Int64:   int64(binary.LittleEndian.Uint64(data[0:8])),
 		Valid:   true,
 	}, nil
+}
+
+// PointerChainStep records one step in a pointer walk.
+type PointerChainStep struct {
+	Offset     string `json:"Offset"`     // offset applied at this step
+	ReadAddr   string `json:"ReadAddr"`   // address the pointer was read from
+	PointerVal string `json:"PointerVal"` // pointer value read (address of next step)
+}
+
+// PointerChainResult is the result of WalkPointerChain.
+type PointerChainResult struct {
+	StartAddr    string             `json:"StartAddr"`
+	Steps        []PointerChainStep `json:"Steps"`
+	FinalAddr    string             `json:"FinalAddr"`
+	FinalInt32   int32              `json:"FinalInt32"`
+	FinalFloat32 float32            `json:"FinalFloat32"`
+	Valid        bool               `json:"Valid"`
+	Err          string             `json:"Err"`
+}
+
+// WalkPointerChain resolves a pointer chain starting at (module_base + baseOffsetHex),
+// applying each offset in turn. Returns the chain steps and the final value.
+func (a *App) WalkPointerChain(baseOffsetHex string, offsets []string) PointerChainResult {
+	a.devMu.Lock()
+	pid := a.devPID
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return PointerChainResult{Err: "no process attached"}
+	}
+
+	modBase, err := scanner.FindModuleBase(a.mem, pid)
+	if err != nil {
+		return PointerChainResult{Err: fmt.Sprintf("finding module base: %v", err)}
+	}
+
+	baseOff, err := parseHex(baseOffsetHex)
+	if err != nil {
+		return PointerChainResult{Err: fmt.Sprintf("invalid base_offset %q: %v", baseOffsetHex, err)}
+	}
+
+	startAddr := modBase + baseOff
+	result := PointerChainResult{
+		StartAddr: fmt.Sprintf("0x%x", startAddr),
+		Steps:     make([]PointerChainStep, 0, len(offsets)),
+	}
+
+	addr := startAddr
+	for _, offStr := range offsets {
+		off, err := parseHex(offStr)
+		if err != nil {
+			result.Err = fmt.Sprintf("invalid offset %q: %v", offStr, err)
+			return result
+		}
+		readAt := addr + off
+		ptrVal, err := a.mem.ReadInt64(pid, readAt)
+		if err != nil {
+			result.Err = fmt.Sprintf("reading pointer at 0x%x: %v", readAt, err)
+			return result
+		}
+		result.Steps = append(result.Steps, PointerChainStep{
+			Offset:     fmt.Sprintf("0x%x", off),
+			ReadAddr:   fmt.Sprintf("0x%x", readAt),
+			PointerVal: fmt.Sprintf("0x%x", uint64(ptrVal)),
+		})
+		addr = uintptr(ptrVal)
+	}
+
+	result.FinalAddr = fmt.Sprintf("0x%x", addr)
+	data, err := a.mem.ReadBytes(pid, addr, 4)
+	if err != nil {
+		result.Err = fmt.Sprintf("reading final value at %s: %v", result.FinalAddr, err)
+		return result
+	}
+	u32 := binary.LittleEndian.Uint32(data)
+	result.FinalInt32 = int32(u32)
+	result.FinalFloat32 = math.Float32frombits(u32)
+	result.Valid = true
+	return result
 }
 
 func (a *App) WriteValue(addrHex string, val int32) error {

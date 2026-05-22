@@ -3,6 +3,7 @@ package scanner
 import (
 	"encoding/binary"
 	"fmt"
+	"math"
 
 	"github.com/freemod/freemod/core/memory"
 )
@@ -59,6 +60,104 @@ func NarrowScan(mem memory.Memory, pid int, addrs []uintptr, newValue int32) ([]
 		}
 	}
 	return matches, nil
+}
+
+// ScanForFloat32 scans all readable memory regions for the given float32 value.
+func ScanForFloat32(mem memory.Memory, pid int, value float32) ([]uintptr, error) {
+	regions, err := mem.ReadableRegions(pid)
+	if err != nil {
+		return nil, fmt.Errorf("enumerating regions: %w", err)
+	}
+
+	target := make([]byte, 4)
+	binary.LittleEndian.PutUint32(target, math.Float32bits(value))
+
+	var matches []uintptr
+	for _, region := range regions {
+		if region.Size < 4 {
+			continue
+		}
+		data, err := mem.ReadBytes(pid, region.Start, int(region.Size))
+		if err != nil {
+			continue
+		}
+		for i := 0; i <= len(data)-4; i++ {
+			if data[i] == target[0] && data[i+1] == target[1] &&
+				data[i+2] == target[2] && data[i+3] == target[3] {
+				matches = append(matches, region.Start+uintptr(i))
+			}
+		}
+	}
+	return matches, nil
+}
+
+// NarrowScanFloat32 filters a previous address list to those whose current
+// float32 value (by exact bit pattern) matches newValue.
+func NarrowScanFloat32(mem memory.Memory, pid int, addrs []uintptr, newValue float32) ([]uintptr, error) {
+	bits := math.Float32bits(newValue)
+	var matches []uintptr
+	for _, addr := range addrs {
+		data, err := mem.ReadBytes(pid, addr, 4)
+		if err != nil {
+			continue
+		}
+		if binary.LittleEndian.Uint32(data) == bits {
+			matches = append(matches, addr)
+		}
+	}
+	return matches, nil
+}
+
+// ReadFloat32AtAddrs reads the current float32 value at each address, silently
+// dropping unreadable ones. Returns parallel slices of surviving addresses and values.
+func ReadFloat32AtAddrs(mem memory.Memory, pid int, addrs []uintptr) ([]uintptr, []float32) {
+	out := make([]uintptr, 0, len(addrs))
+	vals := make([]float32, 0, len(addrs))
+	for _, addr := range addrs {
+		data, err := mem.ReadBytes(pid, addr, 4)
+		if err != nil {
+			continue
+		}
+		out = append(out, addr)
+		vals = append(vals, math.Float32frombits(binary.LittleEndian.Uint32(data)))
+	}
+	return out, vals
+}
+
+// NarrowFloat32ByMode filters a previous float32 address list by comparing the
+// current value against the previously recorded value.
+// mode: "increased", "decreased", "changed", or "unchanged".
+func NarrowFloat32ByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals []float32, mode string) ([]uintptr, []float32, error) {
+	if len(addrs) != len(prevVals) {
+		return nil, nil, fmt.Errorf("address/value slice length mismatch")
+	}
+	var survivors []uintptr
+	var newVals []float32
+	for i, addr := range addrs {
+		data, err := mem.ReadBytes(pid, addr, 4)
+		if err != nil {
+			continue
+		}
+		cur := math.Float32frombits(binary.LittleEndian.Uint32(data))
+		var keep bool
+		switch mode {
+		case "increased":
+			keep = cur > prevVals[i]
+		case "decreased":
+			keep = cur < prevVals[i]
+		case "changed":
+			keep = cur != prevVals[i]
+		case "unchanged":
+			keep = cur == prevVals[i]
+		default:
+			return nil, nil, fmt.Errorf("unknown scan mode %q", mode)
+		}
+		if keep {
+			survivors = append(survivors, addr)
+			newVals = append(newVals, cur)
+		}
+	}
+	return survivors, newVals, nil
 }
 
 // ReadValuesAtAddrs reads the current int32 value at each address, silently

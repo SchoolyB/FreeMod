@@ -26,6 +26,8 @@ export function LoadTrainer(arg1:string):Promise<main.TrainerStatus>;
 
 export function NarrowValue(arg1:number):Promise<main.ScanResult>;
 
+export function NarrowValueFloat(arg1:number):Promise<main.ScanResult>;
+
 export function PickTrainerDir():Promise<string>;
 
 export function ReadAllTypes(arg1:string):Promise<main.AllTypesResult>;
@@ -38,6 +40,10 @@ export function ScanByMode(arg1:string):Promise<main.ScanResult>;
 
 export function ScanValue(arg1:number):Promise<main.ScanResult>;
 
+export function ScanValueFloat(arg1:number):Promise<main.ScanResult>;
+
+export function SetFullscreen(arg1:boolean):Promise<void>;
+
 export function StopTestFreeze():Promise<void>;
 
 export function TestFreeze(arg1:string,arg2:number):Promise<void>;
@@ -47,5 +53,7 @@ export function ToggleCheat(arg1:number,arg2:boolean,arg3:number):Promise<main.T
 export function TrainerImage(arg1:string):Promise<string>;
 
 export function UserTrainerDir():Promise<string>;
+
+export function WalkPointerChain(arg1:string,arg2:Array<string>):Promise<main.PointerChainResult>;
 
 export function WriteValue(arg1:string,arg2:number):Promise<void>;

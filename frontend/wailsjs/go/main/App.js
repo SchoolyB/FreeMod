@@ -50,6 +50,10 @@ export function NarrowValue(arg1) {
   return window['go']['main']['App']['NarrowValue'](arg1);
 }
 
+export function NarrowValueFloat(arg1) {
+  return window['go']['main']['App']['NarrowValueFloat'](arg1);
+}
+
 export function PickTrainerDir() {
   return window['go']['main']['App']['PickTrainerDir']();
 }
@@ -74,6 +78,10 @@ export function ScanValue(arg1) {
   return window['go']['main']['App']['ScanValue'](arg1);
 }
 
+export function ScanValueFloat(arg1) {
+  return window['go']['main']['App']['ScanValueFloat'](arg1);
+}
+
 export function SetFullscreen(arg1) {
   return window['go']['main']['App']['SetFullscreen'](arg1);
 }
@@ -96,6 +104,10 @@ export function TrainerImage(arg1) {
 
 export function UserTrainerDir() {
   return window['go']['main']['App']['UserTrainerDir']();
+}
+
+export function WalkPointerChain(arg1, arg2) {
+  return window['go']['main']['App']['WalkPointerChain'](arg1, arg2);
 }
 
 export function WriteValue(arg1, arg2) {
