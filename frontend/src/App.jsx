@@ -543,8 +543,11 @@ function PointerChainBuilder({ attachedPID }) {
   )
 }
 
-function getScanHint(history, count, attached) {
+function getScanHint(history, count, attached, scanning, scanType) {
   if (!attached) return 'Select a process from the left to begin.'
+  if (scanning) return scanType === 'all'
+    ? 'Scanning all types in parallel — large processes may take a moment...'
+    : 'Scan in progress — depending on the game this can take a moment...'
   if (history.length === 0) return 'Enter the current in-game value and click Scan.'
   if (count > 10000) return `${count.toLocaleString()} candidates — way too many. Change the value in-game, then use Narrow or a mode button.`
   if (count > 500) return `${count.toLocaleString()} candidates. Change the value in-game, then narrow it down.`
@@ -599,6 +602,7 @@ function DevModeTab() {
   const [writeVal, setWriteVal] = useState('')
   const [readResult, setReadResult] = useState(null)
   const [writeMsg, setWriteMsg] = useState(null)
+  const [clampWarning, setClampWarning] = useState(null) // { field, msg }
 
   const [statusMsg, setStatusMsg] = useState(null)
   const showStatus = (text, isError = false) => setStatusMsg({ text, isError })
@@ -749,6 +753,32 @@ function DevModeTab() {
     } catch (_) {}
   }, [])
 
+  const TYPE_BOUNDS = {
+    'int32':   { min: -2147483648,          max: 2147483647,          int: true  },
+    'int64':   { min: -9223372036854775808,  max: 9223372036854775807, int: true  },
+    'float32': { min: -3.4028235e+38,        max: 3.4028235e+38,       int: false },
+    'float64': { min: -Number.MAX_VALUE,     max: Number.MAX_VALUE,    int: false },
+    'all':     { min: -2147483648,           max: 2147483647,          int: true  },
+  }
+
+  const clampToType = (raw, field) => {
+    const bounds = TYPE_BOUNDS[scanType] || TYPE_BOUNDS['int32']
+    const num = bounds.int ? parseInt(raw, 10) : parseFloat(raw)
+    if (isNaN(num)) return raw
+    if (num > bounds.max) {
+      setClampWarning({ field, msg: `Clamped to ${scanType} max (${bounds.max})` })
+      setTimeout(() => setClampWarning(null), 3000)
+      return String(bounds.max)
+    }
+    if (num < bounds.min) {
+      setClampWarning({ field, msg: `Clamped to ${scanType} min (${bounds.min})` })
+      setTimeout(() => setClampWarning(null), 3000)
+      return String(bounds.min)
+    }
+    setClampWarning(null)
+    return raw
+  }
+
   const startFreeze = useCallback(async () => {
     const num = parseInt(freezeVal, 10)
     if (isNaN(num) || !selectedAddr) return
@@ -833,7 +863,7 @@ function DevModeTab() {
   // Clean up test freeze on unmount
   useEffect(() => () => { StopTestFreeze().catch(() => {}) }, [])
 
-  const hint = getScanHint(scanHistory, addresses.length, attachedPID > 0)
+  const hint = getScanHint(scanHistory, addresses.length, attachedPID > 0, scanning, scanType)
   const hasHistory = scanHistory.length > 0
 
   return (
@@ -925,7 +955,8 @@ function DevModeTab() {
           <div className="dev-card-header"><span>Memory Scanner</span></div>
 
           {/* Contextual hint */}
-          <div className={`scan-hint ${addresses.length === 1 ? 'success' : ''}`}>
+          <div className={`scan-hint ${addresses.length === 1 ? 'success' : ''} ${scanning ? 'scanning' : ''}`}>
+            {scanning && <Spinner />}
             {hint}
           </div>
 
@@ -1097,7 +1128,7 @@ function DevModeTab() {
                     type="number"
                     placeholder="Freeze at value..."
                     value={freezeVal}
-                    onChange={e => setFreezeVal(e.target.value)}
+                    onChange={e => setFreezeVal(clampToType(e.target.value, 'freeze'))}
                     disabled={freezeActive}
                   />
                   {!freezeActive ? (
@@ -1118,6 +1149,9 @@ function DevModeTab() {
                   <div className="freeze-active-indicator">
                     <span className="pulse-dot green" /> Actively freezing
                   </div>
+                )}
+                {clampWarning?.field === 'freeze' && (
+                  <div className="clamp-warning">{clampWarning.msg}</div>
                 )}
                 {freezeMsg && (
                   <div className={`dev-write-msg ${freezeMsg.err ? 'error' : 'ok'}`}>
@@ -1191,13 +1225,16 @@ function DevModeTab() {
                 type="number"
                 placeholder="New value..."
                 value={writeVal}
-                onChange={e => setWriteVal(e.target.value)}
+                onChange={e => setWriteVal(clampToType(e.target.value, 'write'))}
                 disabled={!attachedPID}
               />
               <button onClick={doWrite} disabled={!attachedPID || !writeAddr || !writeVal} className="danger">
                 Write
               </button>
             </div>
+            {clampWarning?.field === 'write' && (
+              <div className="clamp-warning">{clampWarning.msg}</div>
+            )}
             {writeMsg && (
               <div className={`dev-write-msg ${writeMsg.err ? 'error' : 'ok'}`}>
                 {writeMsg.text}

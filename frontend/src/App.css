@@ -1472,6 +1472,22 @@ html, body, #root {
   color: var(--accent-red);
 }
 
+.clamp-warning {
+  padding: 5px 18px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 2px solid #f59e0b;
+  animation: fadeout 3s forwards;
+}
+
+@keyframes fadeout {
+  0%   { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ── Dev Mode: new features ──────────────────────────────────────────────────── */
 
 /* Attached process badge */
@@ -1549,6 +1565,15 @@ html, body, #root {
   color: var(--accent-green);
   background: rgba(16, 185, 129, 0.06);
   border-color: rgba(16, 185, 129, 0.2);
+}
+
+.scan-hint.scanning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-purple);
+  background: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.2);
 }
 
 /* Mode scan buttons */
