@@ -31,6 +31,8 @@ import {
   ScanAllTypes,
   NarrowAllTypes,
   ScanByModeAll,
+  ScanPointers,
+  VerifyPointerChain,
 } from '../wailsjs/go/main/App'
 
 // ── Error Boundary ────────────────────────────────────────────────────────────
@@ -603,6 +605,11 @@ function DevModeTab() {
   const [readResult, setReadResult] = useState(null)
   const [writeMsg, setWriteMsg] = useState(null)
   const [clampWarning, setClampWarning] = useState(null) // { field, msg }
+  const [ptrScanAddr, setPtrScanAddr] = useState(null)   // address being pointer-scanned
+  const [ptrScanResults, setPtrScanResults] = useState(null)
+  const [ptrScanning, setPtrScanning] = useState(false)
+  const [ptrScanErr, setPtrScanErr] = useState(null)
+  const [verifiedChain, setVerifiedChain] = useState(null)
 
   const [statusMsg, setStatusMsg] = useState(null)
   const showStatus = (text, isError = false) => setStatusMsg({ text, isError })
@@ -751,6 +758,35 @@ function DevModeTab() {
       setAllTypes(t)
       setFreezeVal(String(t.Int32))
     } catch (_) {}
+  }, [])
+
+  const doPointerScan = useCallback(async (addr) => {
+    setPtrScanAddr(addr)
+    setPtrScanResults(null)
+    setPtrScanErr(null)
+    setVerifiedChain(null)
+    setPtrScanning(true)
+    try {
+      const results = await ScanPointers(addr, 4)
+      setPtrScanResults(results)
+      if (!results || results.length === 0) {
+        setPtrScanErr('No pointer chains found. Try increasing depth or the value may not have a static chain.')
+      }
+    } catch (e) {
+      setPtrScanErr(String(e))
+    } finally {
+      setPtrScanning(false)
+    }
+  }, [])
+
+  const doVerifyChain = useCallback(async (chain) => {
+    setVerifiedChain(null)
+    try {
+      const finalAddr = await VerifyPointerChain(chain.BaseOffset, chain.Offsets)
+      setVerifiedChain({ chain, finalAddr, ok: true })
+    } catch (e) {
+      setVerifiedChain({ chain, err: String(e), ok: false })
+    }
   }, [])
 
   const TYPE_BOUNDS = {
@@ -950,6 +986,45 @@ function DevModeTab() {
           </div>
         </section>
 
+        {/* ── Pointer Scan Results (shown when a chain scan is active) ── */}
+        {(ptrScanning || ptrScanResults || ptrScanErr) && (
+          <section className="dev-card dev-card-ptrscan">
+            <div className="dev-card-header">
+              <span>Pointer Chains {ptrScanAddr && <span className="ptrscan-target">→ {ptrScanAddr}</span>}</span>
+              <button onClick={() => { setPtrScanResults(null); setPtrScanErr(null); setPtrScanAddr(null); setVerifiedChain(null) }}>✕</button>
+            </div>
+            {ptrScanning && (
+              <div className="scan-hint scanning">
+                <Spinner /> Scanning for pointer chains — this may take a minute...
+              </div>
+            )}
+            {ptrScanErr && <div className="ptrscan-error">{ptrScanErr}</div>}
+            {ptrScanResults && ptrScanResults.length > 0 && (
+              <div className="ptrscan-list">
+                {ptrScanResults.map((c, i) => (
+                  <div key={i} className={`ptrscan-row ${verifiedChain?.chain === c ? (verifiedChain.ok ? 'verified' : 'failed') : ''}`}>
+                    <div className="ptrscan-chain">
+                      <span className="ptrscan-base">{c.BaseOffset}</span>
+                      {c.Offsets.map((o, j) => <span key={j} className="ptrscan-offset">+{o}</span>)}
+                      <span className="ptrscan-depth">depth {c.Depth}</span>
+                    </div>
+                    {verifiedChain?.chain === c && verifiedChain.ok && (
+                      <div className="ptrscan-verified">✓ resolves to {verifiedChain.finalAddr}</div>
+                    )}
+                    {verifiedChain?.chain === c && !verifiedChain.ok && (
+                      <div className="ptrscan-failed">✗ {verifiedChain.err}</div>
+                    )}
+                    <div className="ptrscan-actions">
+                      <button className="ptrscan-verify-btn" onClick={() => doVerifyChain(c)}>Verify</button>
+                      <button className="ptrscan-copy-btn" onClick={() => navigator.clipboard.writeText(JSON.stringify({ base_offset: c.BaseOffset, offsets: c.Offsets }, null, 2))}>Copy JSON</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* ── Center: Scanner Panel ── */}
         <section className="dev-card dev-card-scanner">
           <div className="dev-card-header"><span>Memory Scanner</span></div>
@@ -1087,6 +1162,11 @@ function DevModeTab() {
                 >
                   {addr}
                   {addr === selectedAddr && <span className="addr-selected-tag">selected</span>}
+                  <button
+                    className="find-chain-btn"
+                    title="Find stable pointer chain to this address"
+                    onClick={e => { e.stopPropagation(); doPointerScan(addr) }}
+                  >chain</button>
                 </div>
               ))
             )}

@@ -90,6 +90,10 @@ export function ScanByModeAll(arg1) {
   return window['go']['main']['App']['ScanByModeAll'](arg1);
 }
 
+export function ScanPointers(arg1, arg2) {
+  return window['go']['main']['App']['ScanPointers'](arg1, arg2);
+}
+
 export function ScanValue(arg1) {
   return window['go']['main']['App']['ScanValue'](arg1);
 }
@@ -120,6 +124,10 @@ export function TrainerImage(arg1) {
 
 export function UserTrainerDir() {
   return window['go']['main']['App']['UserTrainerDir']();
+}
+
+export function VerifyPointerChain(arg1, arg2) {
+  return window['go']['main']['App']['VerifyPointerChain'](arg1, arg2);
 }
 
 export function WalkPointerChain(arg1, arg2) {

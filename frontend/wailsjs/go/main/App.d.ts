@@ -46,6 +46,8 @@ export function ScanByMode(arg1:string):Promise<main.ScanResult>;
 
 export function ScanByModeAll(arg1:string):Promise<main.AllTypesScanResult>;
 
+export function ScanPointers(arg1:string,arg2:number):Promise<Array<main.PointerScanResult>>;
+
 export function ScanValue(arg1:number):Promise<main.ScanResult>;
 
 export function ScanValueFloat(arg1:number):Promise<main.ScanResult>;
@@ -61,6 +63,8 @@ export function ToggleCheat(arg1:number,arg2:boolean,arg3:number,arg4:number):Pr
 export function TrainerImage(arg1:string):Promise<string>;
 
 export function UserTrainerDir():Promise<string>;
+
+export function VerifyPointerChain(arg1:string,arg2:Array<string>):Promise<string>;
 
 export function WalkPointerChain(arg1:string,arg2:Array<string>):Promise<main.PointerChainResult>;
 

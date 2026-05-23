@@ -1123,6 +1123,142 @@ html, body, #root {
   border-right: 1px solid var(--border-subtle);
 }
 
+/* Pointer Scan Panel */
+.dev-card-ptrscan {
+  flex: 1.2;
+  border-right: 1px solid var(--border-subtle);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ptrscan-target {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.ptrscan-error {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--accent-red);
+}
+
+.ptrscan-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ptrscan-row {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s;
+}
+
+.ptrscan-row:hover {
+  background: var(--surface-overlay-sm);
+}
+
+.ptrscan-row.verified {
+  background: rgba(16, 185, 129, 0.05);
+  border-left: 2px solid var(--accent-green);
+}
+
+.ptrscan-row.failed {
+  background: rgba(239, 68, 68, 0.05);
+  border-left: 2px solid var(--accent-red);
+}
+
+.ptrscan-chain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.ptrscan-base {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-purple);
+}
+
+.ptrscan-offset {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ptrscan-depth {
+  font-size: 10px;
+  color: var(--text-dark);
+  margin-left: auto;
+}
+
+.ptrscan-verified {
+  font-size: 11px;
+  color: var(--accent-green);
+  font-family: var(--font-mono);
+  margin-bottom: 4px;
+}
+
+.ptrscan-failed {
+  font-size: 11px;
+  color: var(--accent-red);
+  margin-bottom: 4px;
+}
+
+.ptrscan-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ptrscan-verify-btn, .ptrscan-copy-btn {
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.ptrscan-verify-btn:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+.ptrscan-copy-btn:hover {
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+}
+
+.find-chain-btn {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-dark);
+  font-size: 10px;
+  padding: 1px 5px;
+  cursor: pointer;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.dev-addr-row:hover .find-chain-btn {
+  opacity: 1;
+}
+
+.find-chain-btn:hover {
+  color: var(--accent-purple);
+  border-color: var(--accent-purple);
+}
+
 /* Right Panel (Memory Writer) */
 .dev-card-writer {
   flex: 0.8;

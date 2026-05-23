@@ -1308,6 +1308,90 @@ func (a *App) ScanByModeAll(mode string) (AllTypesScanResult, error) {
 	}, nil
 }
 
+// PointerScanResult is a single candidate chain returned to the frontend.
+type PointerScanResult struct {
+	BaseOffset string   `json:"BaseOffset"` // hex offset from module base
+	Offsets    []string `json:"Offsets"`    // hex offsets in chain order
+	Depth      int      `json:"Depth"`
+}
+
+// ScanPointers finds pointer chains leading to targetAddrHex.
+// maxDepth controls recursion depth (0 = use default of 4).
+func (a *App) ScanPointers(targetAddrHex string, maxDepth int) ([]PointerScanResult, error) {
+	a.devMu.Lock()
+	pid := a.devPID
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return nil, fmt.Errorf("no process attached")
+	}
+
+	targetAddr, err := parseHex(targetAddrHex)
+	if err != nil {
+		return nil, fmt.Errorf("invalid address: %w", err)
+	}
+
+	moduleBase, err := scanner.FindModuleBase(a.mem, pid)
+	if err != nil {
+		return nil, fmt.Errorf("finding module base: %w", err)
+	}
+
+	opts := scanner.PointerScanOptions{MaxDepth: maxDepth}
+	candidates, err := scanner.ScanForPointers(a.mem, pid, moduleBase, targetAddr, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]PointerScanResult, len(candidates))
+	for i, c := range candidates {
+		offHex := make([]string, len(c.Offsets))
+		for j, o := range c.Offsets {
+			offHex[j] = fmt.Sprintf("0x%x", o)
+		}
+		out[i] = PointerScanResult{
+			BaseOffset: fmt.Sprintf("0x%x", c.BaseOffset),
+			Offsets:    offHex,
+			Depth:      len(c.Offsets),
+		}
+	}
+	return out, nil
+}
+
+// VerifyPointerChain resolves a chain from module base and returns the final address.
+func (a *App) VerifyPointerChain(baseOffsetHex string, offsets []string) (string, error) {
+	a.devMu.Lock()
+	pid := a.devPID
+	a.devMu.Unlock()
+
+	if pid == 0 {
+		return "", fmt.Errorf("no process attached")
+	}
+
+	moduleBase, err := scanner.FindModuleBase(a.mem, pid)
+	if err != nil {
+		return "", fmt.Errorf("finding module base: %w", err)
+	}
+
+	baseOff, err := parseHex(baseOffsetHex)
+	if err != nil {
+		return "", fmt.Errorf("invalid base offset: %w", err)
+	}
+
+	offs := make([]uintptr, len(offsets))
+	for i, o := range offsets {
+		offs[i], err = parseHex(o)
+		if err != nil {
+			return "", fmt.Errorf("invalid offset %q: %w", o, err)
+		}
+	}
+
+	finalAddr, err := scanner.VerifyChain(a.mem, pid, moduleBase, baseOff, offs)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("0x%x", finalAddr), nil
+}
+
 func toScanResult(addrs []uintptr) ScanResult {
 	strs := make([]string, len(addrs))
 	for i, a := range addrs {
