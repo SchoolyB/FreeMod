@@ -2793,3 +2793,522 @@ button.danger:hover:not(:disabled) {
   color: var(--text-secondary);
   font-size: 12px;
 }
+
+/* ── Sidebar Badge ────────────────────────────────────────────────────────── */
+
+.sidebar-btn {
+  position: relative;
+}
+
+.sidebar-badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: var(--accent-purple);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  pointer-events: none;
+}
+
+/* ── CT Import Tab ────────────────────────────────────────────────────────── */
+
+.ct-import-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 28px 32px;
+  gap: 0;
+  background: var(--bg-deep);
+}
+
+.ct-import-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.ct-import-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin: 0 0 6px;
+}
+
+.ct-import-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 620px;
+}
+
+.ct-import-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.ct-import-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ct-import-file-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ct-file-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-normal);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.ct-file-label:hover {
+  background: var(--bg-element-hover);
+  color: var(--text-bright);
+  border-color: var(--accent-purple);
+}
+
+.ct-import-or {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ct-xml-input {
+  width: 100%;
+  min-height: 200px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-normal);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 12px 14px;
+  resize: vertical;
+  box-sizing: border-box;
+  transition: var(--transition-fast);
+  outline: none;
+}
+
+.ct-xml-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-purple-glow);
+}
+
+.ct-xml-input::placeholder {
+  color: var(--text-dark);
+}
+
+.ct-import-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ct-parse-btn {
+  padding: 8px 20px;
+  background: var(--accent-purple);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ct-parse-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-purple) 85%, white);
+}
+
+.ct-parse-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ct-error {
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-md);
+  color: var(--accent-red);
+  font-size: 13px;
+}
+
+.ct-result-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex: 1;
+  min-height: 200px;
+}
+
+.ct-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  background: rgba(16, 185, 129, 0.06);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-green);
+}
+
+.ct-copy-btn {
+  padding: 4px 12px;
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-normal);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.ct-copy-btn:hover {
+  background: var(--bg-element-hover);
+  color: var(--text-bright);
+}
+
+.ct-copy-btn.copied {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-green);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.ct-result-json {
+  background: var(--bg-inset);
+  color: var(--accent-green);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  padding: 14px;
+  margin: 0;
+  overflow: auto;
+  flex: 1;
+  white-space: pre;
+}
+
+/* ── Exporter Tab ─────────────────────────────────────────────────────────── */
+
+.exporter-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 28px 32px;
+  background: var(--bg-deep);
+}
+
+.exporter-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.exporter-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-bright);
+  margin: 0 0 6px;
+}
+
+.exporter-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 620px;
+}
+
+.exporter-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+}
+
+.exporter-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exporter-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.exporter-meta-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.exporter-input {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-normal);
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  transition: var(--transition-fast);
+  font-family: var(--font-sans);
+}
+
+.exporter-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-purple-glow);
+}
+
+.exporter-input-sm {
+  flex: 0 0 90px;
+  min-width: 0;
+}
+
+.exporter-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 24px 0;
+  line-height: 1.6;
+}
+
+.exporter-empty strong {
+  color: var(--text-normal);
+}
+
+.exporter-cheat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exporter-cheat-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.exporter-cheat-fields {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.exporter-cheat-name {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-normal);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  font-family: var(--font-sans);
+  transition: var(--transition-fast);
+}
+
+.exporter-cheat-name:focus {
+  border-color: var(--border-focus);
+}
+
+.exporter-cheat-type {
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-normal);
+  font-size: 12px;
+  padding: 6px 8px;
+  outline: none;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+
+.exporter-cheat-value {
+  width: 90px;
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-normal);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  font-family: var(--font-sans);
+  transition: var(--transition-fast);
+}
+
+.exporter-cheat-value:focus {
+  border-color: var(--border-focus);
+}
+
+.exporter-cheat-offset {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.exporter-cheat-offset code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-purple);
+  background: var(--accent-purple-glow);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.exporter-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.exporter-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+}
+
+.exporter-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.exporter-export-btn {
+  padding: 10px 24px;
+  background: var(--accent-purple);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  letter-spacing: 0.02em;
+}
+
+.exporter-export-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-purple) 85%, white);
+  box-shadow: 0 0 12px var(--accent-purple-glow);
+}
+
+.exporter-export-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.exporter-export-btn.copied {
+  background: var(--accent-green);
+}
+
+.exporter-clear-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.exporter-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--accent-red);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.exporter-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Add to Exporter button ───────────────────────────────────────────────── */
+
+.add-to-exporter-btn {
+  padding: 7px 14px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: var(--radius-md);
+  color: var(--accent-green);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  white-space: nowrap;
+}
+
+.add-to-exporter-btn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.45);
+  color: var(--accent-green);
+}
+
+.add-to-exporter-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -34,6 +34,8 @@ export function NarrowValueFloat(arg1:number):Promise<main.ScanResult>;
 
 export function OpenFolder(arg1:string):Promise<void>;
 
+export function ParseCT(arg1:string):Promise<string>;
+
 export function PickTrainerDir():Promise<string>;
 
 export function ReadAllTypes(arg1:string):Promise<main.AllTypesResult>;

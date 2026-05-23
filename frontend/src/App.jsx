@@ -34,6 +34,7 @@ import {
   ScanPointers,
   VerifyPointerChain,
   GetSystemPIDs,
+  ParseCT,
 } from '../wailsjs/go/main/App'
 
 // ── Error Boundary ────────────────────────────────────────────────────────────
@@ -560,7 +561,7 @@ function getScanHint(history, count, attached, scanning, scanType) {
   return 'No matches. The value type might be wrong (try float32 in the editor), or start a fresh scan.'
 }
 
-function DevModeTab({ warnSysProcs }) {
+function DevModeTab({ warnSysProcs, onAddToExporter }) {
   const [showWarning, setShowWarning] = useState(() => localStorage.getItem(WARN_DISMISSED_KEY) !== 'true')
   const [neverShow, setNeverShow] = useState(false)
 
@@ -1332,6 +1333,22 @@ function DevModeTab({ warnSysProcs }) {
                   {copiedJson ? '✓ Copied!' : 'Copy JSON'}
                 </button>
               </div>
+              <div className="dev-row">
+                <button
+                  className="add-to-exporter-btn"
+                  onClick={() => onAddToExporter({
+                    name: trainerName || 'Unnamed Cheat',
+                    type: trainerType,
+                    value: parseFloat(trainerValue) || 0,
+                    baseOffset: singleOffset,
+                    offsets: []
+                  })}
+                  disabled={!trainerName}
+                  title="Queue this cheat in the Exporter tab"
+                >
+                  + Exporter
+                </button>
+              </div>
             </section>
           )}
 
@@ -1445,6 +1462,205 @@ function ScaleSlider({ value, onChange }) {
             </div>
           )
         })}
+      </div>
+    </div>
+  )
+}
+
+// ── CT IMPORT TAB ─────────────────────────────────────────────────────────────
+
+function CTImportTab() {
+  const [xmlInput, setXmlInput] = useState('')
+  const [result, setResult] = useState(null)
+  const [err, setErr] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const parse = async () => {
+    if (!xmlInput.trim()) return
+    setLoading(true)
+    setErr(null)
+    setResult(null)
+    try {
+      const json = await ParseCT(xmlInput)
+      setResult(json)
+    } catch (e) {
+      setErr(String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const copy = () => {
+    navigator.clipboard.writeText(result)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => setXmlInput(ev.target.result)
+    reader.readAsText(file)
+  }
+
+  return (
+    <div className="ct-import-tab">
+      <div className="ct-import-header">
+        <h2>CT &#x2192; FreeMod Converter</h2>
+        <p className="ct-import-desc">
+          Import a Cheat Engine table (.ct) and convert it to a FreeMod trainer JSON. Entries using Auto Assembler Scripts will be skipped — only direct addresses and pointer chains are supported.
+        </p>
+      </div>
+      <div className="ct-import-body">
+        <div className="ct-import-input-section">
+          <div className="ct-import-file-row">
+            <label className="ct-file-label">
+              <input type="file" accept=".ct,.xml" onChange={handleFile} style={{display:'none'}} />
+              Load .ct File
+            </label>
+            <span className="ct-import-or">or paste XML below</span>
+          </div>
+          <textarea
+            className="ct-xml-input"
+            placeholder="Paste Cheat Engine table XML here..."
+            value={xmlInput}
+            onChange={e => setXmlInput(e.target.value)}
+            spellCheck={false}
+          />
+          <div className="ct-import-actions">
+            <button onClick={parse} disabled={!xmlInput.trim() || loading} className="ct-parse-btn">
+              {loading ? <Spinner /> : 'Convert'}
+            </button>
+            <button onClick={() => { setXmlInput(''); setResult(null); setErr(null) }} className="secondary" disabled={!xmlInput && !result}>
+              Clear
+            </button>
+          </div>
+        </div>
+        {err && <div className="ct-error">{err}</div>}
+        {result && (
+          <div className="ct-result-section">
+            <div className="ct-result-header">
+              <span>FreeMod JSON</span>
+              <button className={`ct-copy-btn ${copied ? 'copied' : ''}`} onClick={copy}>
+                {copied ? '✓ Copied!' : 'Copy JSON'}
+              </button>
+            </div>
+            <pre className="ct-result-json">{result}</pre>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── EXPORTER TAB ──────────────────────────────────────────────────────────────
+
+function ExporterTab({ cheats, onRemove, onUpdate, onClear }) {
+  const [game, setGame] = useState('')
+  const [exe, setExe] = useState('')
+  const [version, setVersion] = useState('1.0')
+  const [copied, setCopied] = useState(false)
+
+  const exportJSON = () => {
+    const trainer = {
+      game,
+      exe,
+      version,
+      cheats: cheats.map(c => ({
+        name: c.name,
+        description: '',
+        type: c.type,
+        behavior: 'freeze',
+        base_offset: c.baseOffset,
+        offsets: c.offsets || [],
+        value: typeof c.value === 'string' ? parseFloat(c.value) || 0 : c.value,
+        trigger: 0,
+        input: true
+      }))
+    }
+    navigator.clipboard.writeText(JSON.stringify(trainer, null, 2))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="exporter-tab">
+      <div className="exporter-header">
+        <h2>Trainer Exporter</h2>
+        <p className="exporter-desc">
+          Build and export a FreeMod trainer JSON. Add cheats from the Memory Suite using the &quot;+ Exporter&quot; button, then fill in the game details and export.
+        </p>
+      </div>
+      <div className="exporter-body">
+        <section className="exporter-section">
+          <div className="exporter-section-title">Game Info</div>
+          <div className="exporter-meta-row">
+            <input className="exporter-input" placeholder="Game name..." value={game} onChange={e => setGame(e.target.value)} />
+            <input className="exporter-input" placeholder="Process name (e.g. SimCity 4)" value={exe} onChange={e => setExe(e.target.value)} />
+            <input className="exporter-input exporter-input-sm" placeholder="Version" value={version} onChange={e => setVersion(e.target.value)} />
+          </div>
+        </section>
+
+        <section className="exporter-section">
+          <div className="exporter-section-title">
+            Queued Cheats
+            {cheats.length > 0 && (
+              <button className="exporter-clear-btn" onClick={onClear}>Clear All</button>
+            )}
+          </div>
+          {cheats.length === 0 ? (
+            <div className="exporter-empty">
+              No cheats queued yet. Go to Memory Suite, find an address, and click <strong>+ Exporter</strong>.
+            </div>
+          ) : (
+            <div className="exporter-cheat-list">
+              {cheats.map(c => (
+                <div key={c.id} className="exporter-cheat-row">
+                  <div className="exporter-cheat-fields">
+                    <input
+                      className="exporter-cheat-name"
+                      value={c.name}
+                      onChange={e => onUpdate(c.id, 'name', e.target.value)}
+                      placeholder="Cheat name..."
+                    />
+                    <select
+                      className="exporter-cheat-type"
+                      value={c.type}
+                      onChange={e => onUpdate(c.id, 'type', e.target.value)}
+                    >
+                      <option value="int32">int32</option>
+                      <option value="float32">float32</option>
+                      <option value="int64">int64</option>
+                    </select>
+                    <input
+                      className="exporter-cheat-value"
+                      type="number"
+                      value={c.value}
+                      onChange={e => onUpdate(c.id, 'value', e.target.value)}
+                      placeholder="Value..."
+                    />
+                  </div>
+                  <div className="exporter-cheat-offset">
+                    <code>{c.baseOffset}</code>
+                    {c.offsets?.length > 0 && c.offsets.map((o, i) => <code key={i}>+{o}</code>)}
+                  </div>
+                  <button className="exporter-remove-btn" onClick={() => onRemove(c.id)} title="Remove">&#x2715;</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {cheats.length > 0 && (
+          <div className="exporter-footer">
+            <button className={`exporter-export-btn ${copied ? 'copied' : ''}`} onClick={exportJSON} disabled={!game || !exe}>
+              {copied ? '✓ Copied to Clipboard!' : 'Export JSON'}
+            </button>
+            {(!game || !exe) && <span className="exporter-hint">Fill in game name and process name to export</span>}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1699,6 +1915,19 @@ export default function App() {
     localStorage.getItem(THEME_KEY) || 'dark'
   )
   const [warnSysProcs, setWarnSysProcs] = useState(true)
+  const [exporterCheats, setExporterCheats] = useState([])
+
+  const addExporterCheat = useCallback((cheat) => {
+    setExporterCheats(prev => [...prev, { ...cheat, id: Date.now() + Math.random() }])
+  }, [])
+
+  const removeExporterCheat = useCallback((id) => {
+    setExporterCheats(prev => prev.filter(c => c.id !== id))
+  }, [])
+
+  const updateExporterCheat = useCallback((id, key, val) => {
+    setExporterCheats(prev => prev.map(c => c.id === id ? { ...c, [key]: val } : c))
+  }, [])
 
   const applyScale = (val) => {
     setUiScale(val)
@@ -1782,6 +2011,31 @@ export default function App() {
               Memory Suite
             </button>
             <button
+              className={`sidebar-btn ${tab === 'ct-import' ? 'active' : ''}`}
+              onClick={() => setTab('ct-import')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="18" x2="12" y2="12"></line>
+                <line x1="9" y1="15" x2="12" y2="12"></line>
+                <line x1="15" y1="15" x2="12" y2="12"></line>
+              </svg>
+              CT Import
+            </button>
+            <button
+              className={`sidebar-btn ${tab === 'exporter' ? 'active' : ''}`}
+              onClick={() => setTab('exporter')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              Exporter
+              {exporterCheats.length > 0 && <span className="sidebar-badge">{exporterCheats.length}</span>}
+            </button>
+            <button
               className={`sidebar-btn ${tab === 'settings' ? 'active' : ''}`}
               onClick={() => setTab('settings')}
             >
@@ -1826,7 +2080,11 @@ export default function App() {
           {tab === 'trainers' ? (
             <TrainerTab status={trainerStatus} setStatus={setTrainerStatus} />
           ) : tab === 'dev' ? (
-            <DevModeTab warnSysProcs={warnSysProcs} />
+            <DevModeTab warnSysProcs={warnSysProcs} onAddToExporter={addExporterCheat} />
+          ) : tab === 'ct-import' ? (
+            <CTImportTab />
+          ) : tab === 'exporter' ? (
+            <ExporterTab cheats={exporterCheats} onRemove={removeExporterCheat} onUpdate={updateExporterCheat} onClear={() => setExporterCheats([])} />
           ) : (
             <SettingsTab uiScale={uiScale} onScaleChange={applyScale} warnSysProcs={warnSysProcs} onWarnSysProcsChange={setWarnSysProcs} />
           )}
