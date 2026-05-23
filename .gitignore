@@ -1,5 +1,8 @@
 # Binaries
 build/bin/
+
+# Generated build artifacts
+build/darwin/icon.icns
 /freemod
 /freemod-cli
 /cli

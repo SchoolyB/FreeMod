@@ -14,6 +14,8 @@ export function GetModuleBase(arg1:number):Promise<string>;
 
 export function GetSettings():Promise<main.Settings>;
 
+export function GetSystemPIDs():Promise<Array<number>>;
+
 export function GetTrainerStatus():Promise<main.TrainerStatus>;
 
 export function KillApp():Promise<void>;

@@ -26,6 +26,10 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function GetSystemPIDs() {
+  return window['go']['main']['App']['GetSystemPIDs']();
+}
+
 export function GetTrainerStatus() {
   return window['go']['main']['App']['GetTrainerStatus']();
 }

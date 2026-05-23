@@ -33,6 +33,7 @@ import {
   ScanByModeAll,
   ScanPointers,
   VerifyPointerChain,
+  GetSystemPIDs,
 } from '../wailsjs/go/main/App'
 
 // ── Error Boundary ────────────────────────────────────────────────────────────
@@ -559,7 +560,7 @@ function getScanHint(history, count, attached, scanning, scanType) {
   return 'No matches. The value type might be wrong (try float32 in the editor), or start a fresh scan.'
 }
 
-function DevModeTab() {
+function DevModeTab({ warnSysProcs }) {
   const [showWarning, setShowWarning] = useState(() => localStorage.getItem(WARN_DISMISSED_KEY) !== 'true')
   const [neverShow, setNeverShow] = useState(false)
 
@@ -573,6 +574,7 @@ function DevModeTab() {
   const [attachedName, setAttachedName] = useState('')
   const [moduleBase, setModuleBase] = useState('')
   const [procs, setProcs] = useState([])
+  const [systemPIDs, setSystemPIDs] = useState(new Set())
   const [filter, setFilter] = useState('')
   const [sortBy, setSortBy] = useState('pid-asc')
   const [loadingProcs, setLoadingProcs] = useState(false)
@@ -591,6 +593,25 @@ function DevModeTab() {
   const [allTypes, setAllTypes] = useState(null)
   const [freezeVal, setFreezeVal] = useState('')
   const [freezeActive, setFreezeActive] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [procColWidth, setProcColWidth] = useState(250)
+  const [sysWarnPending, setSysWarnPending] = useState(null)
+
+  const startProcResize = useCallback((e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = procColWidth
+    const onMove = (mv) => {
+      const newW = Math.max(160, Math.min(520, startW + mv.clientX - startX))
+      setProcColWidth(newW)
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [procColWidth])
   const [freezeMsg, setFreezeMsg] = useState(null)
 
   // Add-to-trainer panel (shown when 1 result)
@@ -620,6 +641,7 @@ function DevModeTab() {
     try {
       const list = await ListProcesses()
       setProcs(list || [])
+      GetSystemPIDs().then(pids => setSystemPIDs(new Set(pids))).catch(() => {})
     } catch (e) {
       setProcErr(String(e))
     } finally {
@@ -640,8 +662,7 @@ function DevModeTab() {
     showStatus('Detached.')
   }, [])
 
-  const attach = useCallback(async (pid, name) => {
-    // Stop any running test freeze before switching processes
+  const doAttach = useCallback(async (pid, name) => {
     await StopTestFreeze().catch(() => {})
     setFreezeActive(false)
     try {
@@ -660,6 +681,14 @@ function DevModeTab() {
       showStatus(String(e), true)
     }
   }, [])
+
+  const attach = useCallback((pid, name, isSystem) => {
+    if (warnSysProcs && isSystem) {
+      setSysWarnPending({ pid, name })
+      return
+    }
+    doAttach(pid, name)
+  }, [warnSysProcs, doAttach])
 
   const addHistory = (type, query, mode, count) => {
     setScanHistory(prev => [...prev, { id: prev.length + 1, type, query, mode, count }])
@@ -940,9 +969,27 @@ function DevModeTab() {
         </div>
       )}
 
+      {/* ── System process confirmation modal ── */}
+      {sysWarnPending && (
+        <div className="sys-warn-overlay">
+          <div className="sys-warn-modal">
+            <div className="sys-warn-icon">⚠</div>
+            <div className="sys-warn-title">System Process</div>
+            <div className="sys-warn-body">
+              <strong>{sysWarnPending.name}</strong> is owned by root. Modifying its memory can crash or destabilize your Mac. Only proceed if you know what you're doing.
+            </div>
+            <div className="sys-warn-actions">
+              <button className="sys-warn-cancel" onClick={() => setSysWarnPending(null)}>Cancel</button>
+              <button className="sys-warn-confirm danger" onClick={() => { doAttach(sysWarnPending.pid, sysWarnPending.name); setSysWarnPending(null) }}>Attach Anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="dev-layout">
         {/* ── Left: Process Panel ── */}
-        <section className="dev-card dev-card-process">
+        <section className="dev-card dev-card-process" style={{ width: procColWidth }}>
+          <div className="dev-resize-handle" onMouseDown={startProcResize} />
           <div className="dev-card-header">
             <span>Process</span>
             <button onClick={refreshProcs} disabled={loadingProcs}>
@@ -969,6 +1016,10 @@ function DevModeTab() {
             </div>
           )}
           {procErr && <div className="panel-error">{procErr}</div>}
+          <div className="dev-proc-header">
+            <span className="proc-pid">PID</span>
+            <span className="proc-name-hdr">Name</span>
+          </div>
           <div className="dev-proc-list">
             {filtered.length === 0 && !procErr && (
               <div className="empty">Click Refresh to load</div>
@@ -976,8 +1027,9 @@ function DevModeTab() {
             {filtered.map(p => (
               <div
                 key={p.PID}
-                className={`dev-proc-row ${p.PID === attachedPID ? 'selected' : ''}`}
-                onClick={() => attach(p.PID, p.Name)}
+                className={`dev-proc-row ${p.PID === attachedPID ? 'selected' : ''} ${warnSysProcs && systemPIDs.has(p.PID) ? 'sys-proc' : ''}`}
+                onClick={() => attach(p.PID, p.Name, systemPIDs.has(p.PID))}
+                title={warnSysProcs && systemPIDs.has(p.PID) ? 'System process (root) — modifying memory may crash your Mac' : undefined}
               >
                 <span className="proc-pid">{p.PID}</span>
                 <span className="proc-name">{p.Name}</span>
@@ -1043,16 +1095,19 @@ function DevModeTab() {
                 className={`scan-type-btn ${scanType === 'int32' ? 'active' : ''}`}
                 onClick={() => { setScanType('int32'); setScanHistory([]); setAddresses([]); setAllTypesResults(null) }}
                 disabled={scanning}
+                title="Whole numbers — health, ammo, lives, kill count"
               >int32</button>
               <button
                 className={`scan-type-btn ${scanType === 'float32' ? 'active' : ''}`}
                 onClick={() => { setScanType('float32'); setScanHistory([]); setAddresses([]); setAllTypesResults(null) }}
                 disabled={scanning}
+                title="Decimal numbers — speed, XP, gold, fuel percentage"
               >float32</button>
               <button
                 className={`scan-type-btn ${scanType === 'all' ? 'active' : ''}`}
                 onClick={() => { setScanType('all'); setScanHistory([]); setAddresses([]); setAllTypesResults(null) }}
                 disabled={scanning}
+                title="Not sure? Scans everything at once — slower but won't miss it"
               >all types</button>
             </div>
           </div>
@@ -1280,12 +1335,19 @@ function DevModeTab() {
             </section>
           )}
 
-          {/* Pointer Chain Builder */}
-          <PointerChainBuilder attachedPID={attachedPID} />
+          {/* Advanced toggle */}
+          <div className="dev-advanced-toggle" onClick={() => setShowAdvanced(v => !v)}>
+            <span className={`dev-advanced-arrow ${showAdvanced ? 'open' : ''}`}>›</span>
+            <span>Advanced</span>
+          </div>
 
-          {/* Memory Editor */}
-          <section className="dev-card dev-card-writer">
-            <div className="dev-card-header"><span>Memory Editor</span></div>
+          {showAdvanced && <>
+            {/* Pointer Chain Builder */}
+            <PointerChainBuilder attachedPID={attachedPID} />
+
+            {/* Memory Editor */}
+            <section className="dev-card dev-card-writer">
+              <div className="dev-card-header"><span>Memory Editor</span></div>
             <div className="dev-row">
               <input
                 placeholder="Address (0x...)"
@@ -1320,7 +1382,8 @@ function DevModeTab() {
                 {writeMsg.text}
               </div>
             )}
-          </section>
+            </section>
+          </>}
         </div>
       </div>
     </div>
@@ -1389,7 +1452,7 @@ function ScaleSlider({ value, onChange }) {
 
 // ── SETTINGS TAB ──────────────────────────────────────────────────────────────
 
-function SettingsTab({ uiScale, onScaleChange }) {
+function SettingsTab({ uiScale, onScaleChange, warnSysProcs, onWarnSysProcsChange }) {
   const [settings, setSettings] = useState(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -1581,6 +1644,25 @@ function SettingsTab({ uiScale, onScaleChange }) {
             <span className="settings-toggle-knob" />
           </button>
         </div>
+
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Warn on system processes</span>
+            <span className="settings-row-desc">
+              Show a confirmation before attaching to root-owned processes that could crash your Mac.
+            </span>
+          </div>
+          <button
+            className={`settings-toggle ${warnSysProcs ? 'on' : 'off'}`}
+            onClick={() => {
+              const next = !warnSysProcs
+              update('WarnSystemProcesses', next)
+              onWarnSysProcsChange(next)
+            }}
+          >
+            <span className="settings-toggle-knob" />
+          </button>
+        </div>
       </section>
 
       {/* ── Save ── */}
@@ -1616,6 +1698,7 @@ export default function App() {
   const [theme, setTheme] = useState(() =>
     localStorage.getItem(THEME_KEY) || 'dark'
   )
+  const [warnSysProcs, setWarnSysProcs] = useState(true)
 
   const applyScale = (val) => {
     setUiScale(val)
@@ -1625,6 +1708,9 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.style.zoom = uiScale
+    GetSettings().then(s => {
+      if (s.WarnSystemProcesses !== undefined) setWarnSysProcs(s.WarnSystemProcesses)
+    }).catch(() => {})
   }, [])
 
   const toggleTheme = () => {
@@ -1740,9 +1826,9 @@ export default function App() {
           {tab === 'trainers' ? (
             <TrainerTab status={trainerStatus} setStatus={setTrainerStatus} />
           ) : tab === 'dev' ? (
-            <DevModeTab />
+            <DevModeTab warnSysProcs={warnSysProcs} />
           ) : (
-            <SettingsTab uiScale={uiScale} onScaleChange={applyScale} />
+            <SettingsTab uiScale={uiScale} onScaleChange={applyScale} warnSysProcs={warnSysProcs} onWarnSysProcsChange={setWarnSysProcs} />
           )}
         </div>
       </div>

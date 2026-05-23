@@ -151,6 +151,22 @@ export namespace main {
 		}
 	}
 	
+	export class PointerScanResult {
+	    BaseOffset: string;
+	    Offsets: string[];
+	    Depth: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PointerScanResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.BaseOffset = source["BaseOffset"];
+	        this.Offsets = source["Offsets"];
+	        this.Depth = source["Depth"];
+	    }
+	}
 	export class ProcessInfo {
 	    PID: number;
 	    Name: string;
@@ -171,6 +187,7 @@ export namespace main {
 	    FreezeIntervalMs: number;
 	    TrainerDir: string;
 	    LaunchFullscreen: boolean;
+	    WarnSystemProcesses: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Settings(source);
@@ -182,6 +199,7 @@ export namespace main {
 	        this.FreezeIntervalMs = source["FreezeIntervalMs"];
 	        this.TrainerDir = source["TrainerDir"];
 	        this.LaunchFullscreen = source["LaunchFullscreen"];
+	        this.WarnSystemProcesses = source["WarnSystemProcesses"];
 	    }
 	}
 	export class TrainerStatus {

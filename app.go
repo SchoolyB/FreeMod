@@ -596,6 +596,16 @@ func (a *App) ListProcesses() ([]ProcessInfo, error) {
 	return result, nil
 }
 
+// GetSystemPIDs returns PIDs owned by root. Called separately from ListProcesses
+// so the process list never blocks waiting for ps output.
+func (a *App) GetSystemPIDs() []int {
+	pids := process.SystemPIDs()
+	if pids == nil {
+		return []int{}
+	}
+	return pids
+}
+
 func (a *App) GetModuleBase(pid int) string {
 	base, err := scanner.FindModuleBase(a.mem, pid)
 	if err != nil {

@@ -421,6 +421,7 @@ html, body, #root {
 .theme-icon-btn {
   background: none;
   border: none;
+  outline: none;
   padding: 6px;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -430,6 +431,18 @@ html, body, #root {
   transition: var(--transition-fast);
   color: var(--text-muted);
   opacity: 0.35;
+  -webkit-appearance: none;
+  box-shadow: none;
+}
+
+.theme-icon-btn:hover:not(:disabled),
+.theme-icon-btn:focus,
+.theme-icon-btn:active {
+  background: none !important;
+  border: none;
+  outline: none;
+  box-shadow: none;
+  color: var(--text-muted);
 }
 
 .theme-icon-btn svg {
@@ -1108,13 +1121,58 @@ html, body, #root {
 .dev-card-process {
   width: 250px;
   flex-shrink: 0;
+  position: relative;
+}
+
+.dev-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.dev-resize-handle:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+.dev-proc-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.dev-proc-header .proc-pid {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dark);
+}
+
+.proc-name-hdr {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dark);
 }
 
 /* Right column container */
 .dev-right {
   flex: 1;
   display: flex;
-  overflow: hidden;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* Center Panel (Memory Scanner) */
@@ -1261,7 +1319,7 @@ html, body, #root {
 
 /* Right Panel (Memory Writer) */
 .dev-card-writer {
-  flex: 0.8;
+  flex-shrink: 0;
 }
 
 .dev-card-header {
@@ -1416,6 +1474,79 @@ html, body, #root {
 .dev-proc-row.selected .proc-name {
   color: var(--text-bright);
   font-weight: 700;
+}
+
+.dev-proc-row.sys-proc {
+  background: rgba(245, 158, 11, 0.08);
+  border-left: 2px solid rgba(245, 158, 11, 0.5);
+}
+
+.dev-proc-row.sys-proc .proc-pid,
+.dev-proc-row.sys-proc .proc-name {
+  color: rgba(245, 158, 11, 0.85);
+}
+
+/* ── System process warning modal ── */
+.sys-warn-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.sys-warn-modal {
+  background: var(--bg-panel);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 28px 28px 24px;
+  max-width: 380px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.sys-warn-icon {
+  font-size: 28px;
+  text-align: center;
+}
+
+.sys-warn-title {
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+  color: #f59e0b;
+  letter-spacing: 0.5px;
+}
+
+.sys-warn-body {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.sys-warn-body strong {
+  color: var(--text-normal);
+}
+
+.sys-warn-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.sys-warn-cancel {
+  flex: 1;
+}
+
+.sys-warn-confirm {
+  flex: 1;
 }
 
 /* Control fields for scanning */
@@ -2435,6 +2566,40 @@ button.danger:hover:not(:disabled) {
 /* ── Pointer Chain Builder ───────────────────────────────────────────────── */
 
 .dev-card-ptr-chain { flex-shrink: 0; }
+
+/* ── Advanced collapsible section ───────────────────────────────────────── */
+.dev-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+  transition: color 0.15s ease;
+}
+
+.dev-advanced-toggle:hover {
+  color: var(--text-normal);
+}
+
+.dev-advanced-arrow {
+  font-size: 14px;
+  line-height: 1;
+  display: inline-block;
+  transition: transform 0.2s ease;
+  transform: rotate(0deg);
+}
+
+.dev-advanced-arrow.open {
+  transform: rotate(90deg);
+}
 
 .ptr-chain-hint {
   font-size: 12px;

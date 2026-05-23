@@ -18,7 +18,6 @@ type ProcessInfo struct {
 // ListProcesses returns all currently running processes.
 func ListProcesses() ([]ProcessInfo, error) {
 	// Use sysctl kern.proc.all to list processes
-	// We'll parse `ps` output as a portable fallback using sysctl underneath
 	mib := []int32{1, 14, 0, 0} // CTL_KERN, KERN_PROC, KERN_PROC_ALL
 
 	// Get required buffer size
@@ -69,30 +68,45 @@ func ListProcesses() ([]ProcessInfo, error) {
 	return procs, nil
 }
 
+// SystemPIDs returns PIDs owned by root (UID 0). Returns nil on error or timeout.
+func SystemPIDs() []int {
+	out, err := exec.Command("ps", "-axo", "pid=,uid=").Output()
+	if err != nil {
+		return nil
+	}
+	var pids []int
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		pid, err1 := strconv.Atoi(fields[0])
+		uid, err2 := strconv.Atoi(fields[1])
+		if err1 == nil && err2 == nil && uid == 0 {
+			pids = append(pids, pid)
+		}
+	}
+	return pids
+}
+
 // fallbackListProcesses uses `ps` when sysctl parsing fails.
 func fallbackListProcesses() ([]ProcessInfo, error) {
-	out, err := exec.Command("ps", "-axo", "pid,comm").Output()
+	out, err := exec.Command("ps", "-axo", "pid=,comm=").Output()
 	if err != nil {
 		return nil, fmt.Errorf("ps failed: %w", err)
 	}
 
 	var procs []ProcessInfo
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines[1:] { // skip header
-		line = strings.TrimSpace(line)
-		if line == "" {
+	for _, line := range strings.Split(string(out), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
 			continue
 		}
-		parts := strings.SplitN(line, " ", 2)
-		if len(parts) < 2 {
-			continue
-		}
-		pid, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+		pid, err := strconv.Atoi(fields[0])
 		if err != nil {
 			continue
 		}
-		name := strings.TrimSpace(parts[1])
-		// ps -o comm gives full path; trim to basename
+		name := fields[1]
 		if idx := strings.LastIndex(name, "/"); idx >= 0 {
 			name = name[idx+1:]
 		}
