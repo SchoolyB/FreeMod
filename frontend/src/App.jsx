@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Component } from 'react'
+import { useState, useEffect, useCallback, useRef, Component } from 'react'
 import {
   ListTrainers,
   LoadTrainer,
@@ -561,7 +561,7 @@ function getScanHint(history, count, attached, scanning, scanType) {
   return 'No matches. The value type might be wrong (try float32 in the editor), or start a fresh scan.'
 }
 
-function DevModeTab({ warnSysProcs, onAddToExporter }) {
+function DevModeTab({ warnSysProcs, onAddToExporter, onReset }) {
   const [showWarning, setShowWarning] = useState(() => localStorage.getItem(WARN_DISMISSED_KEY) !== 'true')
   const [neverShow, setNeverShow] = useState(false)
 
@@ -987,6 +987,12 @@ function DevModeTab({ warnSysProcs, onAddToExporter }) {
         </div>
       )}
 
+      <div className="dev-toolbar">
+        <button className="dev-reset-btn" onClick={onReset} title="Clear all scan results, addresses, and detach the current process">
+          Reset Memory Suite
+        </button>
+      </div>
+
       <div className="dev-layout">
         {/* ── Left: Process Panel ── */}
         <section className="dev-card dev-card-process" style={{ width: procColWidth }}>
@@ -1070,6 +1076,7 @@ function DevModeTab({ warnSysProcs, onAddToExporter }) {
                     <div className="ptrscan-actions">
                       <button className="ptrscan-verify-btn" onClick={() => doVerifyChain(c)}>Verify</button>
                       <button className="ptrscan-copy-btn" onClick={() => navigator.clipboard.writeText(JSON.stringify({ base_offset: c.BaseOffset, offsets: c.Offsets }, null, 2))}>Copy JSON</button>
+                      <button className="add-to-exporter-btn" onClick={() => onAddToExporter({ name: 'Unnamed Cheat', type: 'int32', value: 0, baseOffset: c.BaseOffset, offsets: c.Offsets })}>+ Builder</button>
                     </div>
                   </div>
                 ))}
@@ -1344,9 +1351,9 @@ function DevModeTab({ warnSysProcs, onAddToExporter }) {
                     offsets: []
                   })}
                   disabled={!trainerName}
-                  title="Queue this cheat in the Exporter tab"
+                  title="Queue this cheat in Trainer Builder"
                 >
-                  + Exporter
+                  + Builder
                 </button>
               </div>
             </section>
@@ -1557,11 +1564,14 @@ function CTImportTab() {
 
 // ── EXPORTER TAB ──────────────────────────────────────────────────────────────
 
-function ExporterTab({ cheats, onRemove, onUpdate, onClear }) {
+function TrainerBuilderTab({ cheats, onRemove, onUpdate, onClear, onReplace }) {
   const [game, setGame] = useState('')
   const [exe, setExe] = useState('')
   const [version, setVersion] = useState('1.0')
   const [copied, setCopied] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importErr, setImportErr] = useState(null)
 
   const exportJSON = () => {
     const trainer = {
@@ -1572,7 +1582,7 @@ function ExporterTab({ cheats, onRemove, onUpdate, onClear }) {
         name: c.name,
         description: '',
         type: c.type,
-        behavior: 'freeze',
+        behavior: c.behavior || 'freeze',
         base_offset: c.baseOffset,
         offsets: c.offsets || [],
         value: typeof c.value === 'string' ? parseFloat(c.value) || 0 : c.value,
@@ -1585,13 +1595,54 @@ function ExporterTab({ cheats, onRemove, onUpdate, onClear }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const loadImport = () => {
+    setImportErr(null)
+    try {
+      const parsed = JSON.parse(importText)
+      if (!parsed.cheats || !Array.isArray(parsed.cheats)) throw new Error('No cheats array found')
+      if (parsed.game) setGame(parsed.game)
+      if (parsed.exe) setExe(parsed.exe)
+      if (parsed.version) setVersion(parsed.version)
+      onReplace(parsed.cheats.map(c => ({
+        id: Date.now() + Math.random(),
+        name: c.name || 'Unnamed Cheat',
+        type: c.type || 'int32',
+        behavior: c.behavior || 'freeze',
+        value: c.value ?? 0,
+        baseOffset: c.base_offset || '',
+        offsets: c.offsets || []
+      })))
+      setShowImport(false)
+      setImportText('')
+    } catch (e) {
+      setImportErr(String(e))
+    }
+  }
+
   return (
     <div className="exporter-tab">
       <div className="exporter-header">
-        <h2>Trainer Exporter</h2>
+        <div className="exporter-header-top">
+          <h2>Trainer Builder</h2>
+          <button className="import-json-btn" onClick={() => { setShowImport(v => !v); setImportErr(null) }}>
+            {showImport ? 'Cancel' : 'Import JSON'}
+          </button>
+        </div>
         <p className="exporter-desc">
-          Build and export a FreeMod trainer JSON. Add cheats from the Memory Suite using the &quot;+ Exporter&quot; button, then fill in the game details and export.
+          Build and export a FreeMod trainer JSON. Add cheats from Dev Mode using the &quot;+ Builder&quot; button, or import a previously exported JSON to continue editing.
         </p>
+        {showImport && (
+          <div className="import-json-panel">
+            <textarea
+              className="import-json-textarea"
+              placeholder="Paste trainer JSON here..."
+              value={importText}
+              onChange={e => setImportText(e.target.value)}
+            />
+            {importErr && <div className="import-json-err">{importErr}</div>}
+            <button className="import-json-load-btn" onClick={loadImport} disabled={!importText.trim()}>Load</button>
+          </div>
+        )}
       </div>
       <div className="exporter-body">
         <section className="exporter-section">
@@ -1612,7 +1663,7 @@ function ExporterTab({ cheats, onRemove, onUpdate, onClear }) {
           </div>
           {cheats.length === 0 ? (
             <div className="exporter-empty">
-              No cheats queued yet. Go to Memory Suite, find an address, and click <strong>+ Exporter</strong>.
+              No cheats queued yet. Go to Dev Mode, find an address, and click <strong>+ Builder</strong>.
             </div>
           ) : (
             <div className="exporter-cheat-list">
@@ -1633,6 +1684,16 @@ function ExporterTab({ cheats, onRemove, onUpdate, onClear }) {
                       <option value="int32">int32</option>
                       <option value="float32">float32</option>
                       <option value="int64">int64</option>
+                    </select>
+                    <select
+                      className="exporter-cheat-type"
+                      value={c.behavior || 'freeze'}
+                      onChange={e => onUpdate(c.id, 'behavior', e.target.value)}
+                    >
+                      <option value="freeze">freeze</option>
+                      <option value="clamp_min">clamp_min</option>
+                      <option value="clamp_max">clamp_max</option>
+                      <option value="threshold">threshold</option>
                     </select>
                     <input
                       className="exporter-cheat-value"
@@ -1668,7 +1729,7 @@ function ExporterTab({ cheats, onRemove, onUpdate, onClear }) {
 
 // ── SETTINGS TAB ──────────────────────────────────────────────────────────────
 
-function SettingsTab({ uiScale, onScaleChange, warnSysProcs, onWarnSysProcsChange }) {
+function SettingsTab({ uiScale, onScaleChange, warnSysProcs, onWarnSysProcsChange, autoResetDevMode, onAutoResetDevModeChange }) {
   const [settings, setSettings] = useState(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -1879,6 +1940,21 @@ function SettingsTab({ uiScale, onScaleChange, warnSysProcs, onWarnSysProcsChang
             <span className="settings-toggle-knob" />
           </button>
         </div>
+
+        <div className="settings-row">
+          <div className="settings-row-info">
+            <span className="settings-row-label">Auto-reset Memory Suite on tab switch</span>
+            <span className="settings-row-desc">
+              When enabled, leaving the Memory Suite tab will automatically clear all scan results, found addresses, and detach the current process — as if you clicked "Reset Memory Suite". Useful if you want a clean slate every time you come back to it. Leave this off if you want your scan session to persist while you check the Trainer Builder.
+            </span>
+          </div>
+          <button
+            className={`settings-toggle ${autoResetDevMode ? 'on' : 'off'}`}
+            onClick={() => onAutoResetDevModeChange(!autoResetDevMode)}
+          >
+            <span className="settings-toggle-knob" />
+          </button>
+        </div>
       </section>
 
       {/* ── Save ── */}
@@ -1915,6 +1991,9 @@ export default function App() {
     localStorage.getItem(THEME_KEY) || 'dark'
   )
   const [warnSysProcs, setWarnSysProcs] = useState(true)
+  const [autoResetDevMode, setAutoResetDevMode] = useState(false)
+  const [devModeKey, setDevModeKey] = useState(0)
+  const prevTab = useRef(tab)
   const [exporterCheats, setExporterCheats] = useState([])
 
   const addExporterCheat = useCallback((cheat) => {
@@ -1928,6 +2007,15 @@ export default function App() {
   const updateExporterCheat = useCallback((id, key, val) => {
     setExporterCheats(prev => prev.map(c => c.id === id ? { ...c, [key]: val } : c))
   }, [])
+
+  const resetDevMode = useCallback(() => setDevModeKey(k => k + 1), [])
+
+  useEffect(() => {
+    if (prevTab.current === 'dev' && tab !== 'dev' && autoResetDevMode) {
+      setDevModeKey(k => k + 1)
+    }
+    prevTab.current = tab
+  }, [tab, autoResetDevMode])
 
   const applyScale = (val) => {
     setUiScale(val)
@@ -2024,15 +2112,15 @@ export default function App() {
               CT Import
             </button>
             <button
-              className={`sidebar-btn ${tab === 'exporter' ? 'active' : ''}`}
-              onClick={() => setTab('exporter')}
+              className={`sidebar-btn ${tab === 'builder' ? 'active' : ''}`}
+              onClick={() => setTab('builder')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="17 8 12 3 7 8"></polyline>
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
-              Exporter
+              Trainer Builder
               {exporterCheats.length > 0 && <span className="sidebar-badge">{exporterCheats.length}</span>}
             </button>
             <button
@@ -2077,17 +2165,14 @@ export default function App() {
 
         {/* Content viewport */}
         <div className="app-body">
-          {tab === 'trainers' ? (
-            <TrainerTab status={trainerStatus} setStatus={setTrainerStatus} />
-          ) : tab === 'dev' ? (
-            <DevModeTab warnSysProcs={warnSysProcs} onAddToExporter={addExporterCheat} />
-          ) : tab === 'ct-import' ? (
-            <CTImportTab />
-          ) : tab === 'exporter' ? (
-            <ExporterTab cheats={exporterCheats} onRemove={removeExporterCheat} onUpdate={updateExporterCheat} onClear={() => setExporterCheats([])} />
-          ) : (
-            <SettingsTab uiScale={uiScale} onScaleChange={applyScale} warnSysProcs={warnSysProcs} onWarnSysProcsChange={setWarnSysProcs} />
-          )}
+          {/* DevModeTab is always mounted to preserve scan state across tab switches */}
+          <div style={{ display: tab === 'dev' ? 'contents' : 'none' }}>
+            <DevModeTab key={devModeKey} warnSysProcs={warnSysProcs} onAddToExporter={addExporterCheat} onReset={resetDevMode} />
+          </div>
+          {tab === 'trainers' && <TrainerTab status={trainerStatus} setStatus={setTrainerStatus} />}
+          {tab === 'ct-import' && <CTImportTab />}
+          {tab === 'builder' && <TrainerBuilderTab cheats={exporterCheats} onRemove={removeExporterCheat} onUpdate={updateExporterCheat} onClear={() => setExporterCheats([])} onReplace={setExporterCheats} />}
+          {tab === 'settings' && <SettingsTab uiScale={uiScale} onScaleChange={applyScale} warnSysProcs={warnSysProcs} onWarnSysProcsChange={setWarnSysProcs} autoResetDevMode={autoResetDevMode} onAutoResetDevModeChange={setAutoResetDevMode} />}
         </div>
       </div>
     </ErrorBoundary>
