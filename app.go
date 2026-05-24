@@ -58,9 +58,9 @@ type CheatState struct {
 	Description string  `json:"Description"`
 	Enabled     bool    `json:"Enabled"`
 	Input       bool    `json:"Input"`
-	Behavior    string  `json:"Behavior"`  // "freeze" | "clamp_min" | "clamp_max" | "threshold"
-	Value       float64 `json:"Value"`     // default write/clamp value
-	Trigger     float64 `json:"Trigger"`   // threshold: trigger level
+	Behavior    string  `json:"Behavior"` // "freeze" | "clamp_min" | "clamp_max" | "threshold"
+	Value       float64 `json:"Value"`    // default write/clamp value
+	Trigger     float64 `json:"Trigger"`  // threshold: trigger level
 }
 
 type TrainerStatus struct {
@@ -93,18 +93,18 @@ type App struct {
 	settings Settings
 
 	// dev-mode scanner state
-	devMu            sync.Mutex
-	devPID           int
-	devScanAddrs     []uintptr  // int32 addresses (single-type) or int32 addresses (all mode)
-	devScanType      string     // "int32", "float32", or "all"
-	devScanPrevVals  []int32    // int32 prev values
-	devScanPrevValsF []float32  // float32 prev values (single-type float32 or all-mode float32)
-	devScanAddrsF32  []uintptr  // float32 addresses in "all" mode
-	devScanAddrsI64  []uintptr
+	devMu              sync.Mutex
+	devPID             int
+	devScanAddrs       []uintptr // int32 addresses (single-type) or int32 addresses (all mode)
+	devScanType        string    // "int32", "float32", or "all"
+	devScanPrevVals    []int32   // int32 prev values
+	devScanPrevValsF   []float32 // float32 prev values (single-type float32 or all-mode float32)
+	devScanAddrsF32    []uintptr // float32 addresses in "all" mode
+	devScanAddrsI64    []uintptr
 	devScanPrevValsI64 []int64
-	devScanAddrsF64  []uintptr
+	devScanAddrsF64    []uintptr
 	devScanPrevValsF64 []float64
-	devTestCancel    context.CancelFunc // non-nil while a test-freeze goroutine runs
+	devTestCancel      context.CancelFunc // non-nil while a test-freeze goroutine runs
 
 	// trainer state
 	trainerMu     sync.Mutex
@@ -1208,13 +1208,21 @@ func (a *App) ScanAllTypes(val float64) (AllTypesScanResult, error) {
 	r := <-ch
 
 	pi32 := make([]int32, len(r.i32))
-	for i := range r.i32 { pi32[i] = int32(val) }
+	for i := range r.i32 {
+		pi32[i] = int32(val)
+	}
 	pf32 := make([]float32, len(r.f32))
-	for i := range r.f32 { pf32[i] = float32(val) }
+	for i := range r.f32 {
+		pf32[i] = float32(val)
+	}
 	pi64 := make([]int64, len(r.i64))
-	for i := range r.i64 { pi64[i] = int64(val) }
+	for i := range r.i64 {
+		pi64[i] = int64(val)
+	}
 	pf64 := make([]float64, len(r.f64))
-	for i := range r.f64 { pf64[i] = val }
+	for i := range r.f64 {
+		pf64[i] = val
+	}
 
 	a.devMu.Lock()
 	a.devScanType = "all"
@@ -1257,10 +1265,22 @@ func (a *App) NarrowAllTypes(val float64) (AllTypesScanResult, error) {
 	go func() { defer wg.Done(); rf64, _ = scanner.NarrowScanFloat64(a.mem, pid, f64, val) }()
 	wg.Wait()
 
-	pi32 := make([]int32, len(ri32)); for i := range ri32 { pi32[i] = int32(val) }
-	pf32 := make([]float32, len(rf32)); for i := range rf32 { pf32[i] = float32(val) }
-	pi64 := make([]int64, len(ri64)); for i := range ri64 { pi64[i] = int64(val) }
-	pf64 := make([]float64, len(rf64)); for i := range rf64 { pf64[i] = val }
+	pi32 := make([]int32, len(ri32))
+	for i := range ri32 {
+		pi32[i] = int32(val)
+	}
+	pf32 := make([]float32, len(rf32))
+	for i := range rf32 {
+		pf32[i] = float32(val)
+	}
+	pi64 := make([]int64, len(ri64))
+	for i := range ri64 {
+		pi64[i] = int64(val)
+	}
+	pf64 := make([]float64, len(rf64))
+	for i := range rf64 {
+		pf64[i] = val
+	}
 
 	a.devMu.Lock()
 	a.devScanAddrs = ri32
@@ -1295,7 +1315,10 @@ func (a *App) ScanByModeAll(mode string) (AllTypesScanResult, error) {
 
 	var wg sync.WaitGroup
 	var ri32, rf32, ri64, rf64 []uintptr
-	var nvi32 []int32; var nvf32 []float32; var nvi64 []int64; var nvf64 []float64
+	var nvi32 []int32
+	var nvf32 []float32
+	var nvi64 []int64
+	var nvf64 []float64
 	wg.Add(4)
 	go func() { defer wg.Done(); ri32, nvi32, _ = scanner.NarrowByMode(a.mem, pid, i32, pvi32, mode) }()
 	go func() { defer wg.Done(); rf32, nvf32, _ = scanner.NarrowFloat32ByMode(a.mem, pid, f32, pvf32, mode) }()
@@ -1304,10 +1327,14 @@ func (a *App) ScanByModeAll(mode string) (AllTypesScanResult, error) {
 	wg.Wait()
 
 	a.devMu.Lock()
-	a.devScanAddrs = ri32; a.devScanPrevVals = nvi32
-	a.devScanAddrsF32 = rf32; a.devScanPrevValsF = nvf32
-	a.devScanAddrsI64 = ri64; a.devScanPrevValsI64 = nvi64
-	a.devScanAddrsF64 = rf64; a.devScanPrevValsF64 = nvf64
+	a.devScanAddrs = ri32
+	a.devScanPrevVals = nvi32
+	a.devScanAddrsF32 = rf32
+	a.devScanPrevValsF = nvf32
+	a.devScanAddrsI64 = ri64
+	a.devScanPrevValsI64 = nvi64
+	a.devScanAddrsF64 = rf64
+	a.devScanPrevValsF64 = nvf64
 	a.devMu.Unlock()
 
 	return AllTypesScanResult{

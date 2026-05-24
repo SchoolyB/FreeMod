@@ -12,12 +12,12 @@ import (
 )
 
 type ctEntry struct {
-	XMLName      xml.Name   `xml:"CheatEntry"`
-	Description  string     `xml:"Description"`
-	VariableType string     `xml:"VariableType"`
-	Address      string     `xml:"Address"`
-	Value        string     `xml:"Value"`
-	Children     []ctEntry  `xml:"CheatEntries>CheatEntry"`
+	XMLName      xml.Name  `xml:"CheatEntry"`
+	Description  string    `xml:"Description"`
+	VariableType string    `xml:"VariableType"`
+	Address      string    `xml:"Address"`
+	Value        string    `xml:"Value"`
+	Children     []ctEntry `xml:"CheatEntries>CheatEntry"`
 }
 
 type ctTable struct {

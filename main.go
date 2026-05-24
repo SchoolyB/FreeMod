@@ -24,7 +24,7 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 18, G: 18, B: 18, A: 1},
-		OnStartup: app.startup,
+		OnStartup:        app.startup,
 		OnDomReady: func(ctx context.Context) {
 			if loadSettings().LaunchFullscreen {
 				runtime.WindowFullscreen(ctx)

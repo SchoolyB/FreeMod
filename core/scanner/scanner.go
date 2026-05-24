@@ -419,8 +419,8 @@ func NarrowFloat64ByMode(mem memory.Memory, pid int, addrs []uintptr, prevVals [
 // Returns the actual (ASLR-adjusted) base address of the main module.
 func FindModuleBase(mem memory.Memory, pid int) (uintptr, error) {
 	const (
-		machoMagic64  = uint32(0xFEEDFACF)
-		defaultBase   = uintptr(0x100000000)
+		machoMagic64 = uint32(0xFEEDFACF)
+		defaultBase  = uintptr(0x100000000)
 	)
 
 	regions, err := mem.ReadableRegions(pid)

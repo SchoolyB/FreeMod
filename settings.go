@@ -8,11 +8,11 @@ import (
 
 // Settings holds user-configurable preferences persisted to disk.
 type Settings struct {
-	AutoConnect          bool   `json:"AutoConnect"`
-	FreezeIntervalMs     int    `json:"FreezeIntervalMs"`
-	TrainerDir           string `json:"TrainerDir"`
-	LaunchFullscreen     bool   `json:"LaunchFullscreen"`
-	WarnSystemProcesses  bool   `json:"WarnSystemProcesses"`
+	AutoConnect         bool   `json:"AutoConnect"`
+	FreezeIntervalMs    int    `json:"FreezeIntervalMs"`
+	TrainerDir          string `json:"TrainerDir"`
+	LaunchFullscreen    bool   `json:"LaunchFullscreen"`
+	WarnSystemProcesses bool   `json:"WarnSystemProcesses"`
 }
 
 func defaultSettings() Settings {
