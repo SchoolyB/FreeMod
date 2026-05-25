@@ -530,7 +530,7 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 16px;
 }
@@ -562,10 +562,129 @@ html, body, #root {
   color: var(--text-bright);
 }
 
+.gallery-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.gallery-sort-select {
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-normal);
+  font-size: 12px;
+  padding: 5px 8px;
+  cursor: pointer;
+  outline: none;
+}
+
+.gallery-sort-select:focus {
+  border-color: var(--accent-purple);
+}
+
+.gallery-view-toggle {
+  display: flex;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.view-btn {
+  background: var(--bg-element);
+  border: none;
+  color: var(--text-muted);
+  padding: 5px 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background 0.15s, color 0.15s;
+}
+
+.view-btn:first-child {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.view-btn:hover {
+  background: var(--bg-element-hover);
+  color: var(--text-normal);
+}
+
+.view-btn.active {
+  background: var(--accent-purple);
+  color: #fff;
+}
+
 .gallery-grid {
   display: grid;
   gap: 24px;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.gallery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* List mode tile */
+.game-tile-list {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  background: var(--bg-element);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  text-align: left;
+}
+
+.game-tile-list:hover {
+  background: var(--bg-element-hover);
+  border-color: var(--accent-purple);
+}
+
+.game-tile-list-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.game-tile-list-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.game-tile-list-thumb .game-tile-fallback {
+  width: 100%;
+  height: 100%;
+  font-size: 16px;
+}
+
+.game-tile-list-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.game-tile-list-info .game-tile-name {
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-tile-list-info .game-tile-meta {
+  margin: 0;
 }
 
 /* Cover Art Cards */

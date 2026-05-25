@@ -196,7 +196,7 @@ function tileColor(name) {
   return `hsl(${h} 12% 16%)` // Solid matte carbon color with a very subtle brand tint
 }
 
-function GameTile({ trainer, onSelect }) {
+function GameTile({ trainer, onSelect, viewMode = 'grid' }) {
   const [art, setArt] = useState(null) // null = loading, '' = no art, else data URI
 
   useEffect(() => {
@@ -207,17 +207,25 @@ function GameTile({ trainer, onSelect }) {
     return () => { alive = false }
   }, [trainer.Filename])
 
+  const artEl = art
+    ? <img src={art} alt={trainer.Game} />
+    : <div className="game-tile-fallback" style={{ background: tileColor(trainer.Game) }}>{(trainer.Game || '?').trim().charAt(0).toUpperCase()}</div>
+
+  if (viewMode === 'list') {
+    return (
+      <button className="game-tile game-tile-list" onClick={onSelect}>
+        <div className="game-tile-list-thumb">{artEl}</div>
+        <div className="game-tile-list-info">
+          <span className="game-tile-name">{trainer.Game}</span>
+          <span className="game-tile-meta">{trainer.Exe} · v{trainer.Version}</span>
+        </div>
+      </button>
+    )
+  }
+
   return (
     <button className="game-tile" onClick={onSelect}>
-      <div className="game-tile-art">
-        {art ? (
-          <img src={art} alt={trainer.Game} />
-        ) : (
-          <div className="game-tile-fallback" style={{ background: tileColor(trainer.Game) }}>
-            {(trainer.Game || '?').trim().charAt(0).toUpperCase()}
-          </div>
-        )}
-      </div>
+      <div className="game-tile-art">{artEl}</div>
       <div className="game-tile-name">{trainer.Game}</div>
       <div className="game-tile-meta">{trainer.Exe} · v{trainer.Version}</div>
     </button>
@@ -230,6 +238,17 @@ function TrainerTab({ status, setStatus }) {
   const [list, setList] = useState([])
   const [loadingList, setLoadingList] = useState(false)
   const [listErr, setListErr] = useState(null)
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('gallery-view') || 'grid')
+  const [sortBy, setSortBy] = useState(() => localStorage.getItem('gallery-sort') || 'name-asc')
+
+  const setView = (v) => { setViewMode(v); localStorage.setItem('gallery-view', v) }
+  const setSort = (s) => { setSortBy(s); localStorage.setItem('gallery-sort', s) }
+
+  const sortedList = [...list].sort((a, b) => {
+    const na = (a.Game || '').toLowerCase()
+    const nb = (b.Game || '').toLowerCase()
+    return sortBy === 'name-desc' ? nb.localeCompare(na) : na.localeCompare(nb)
+  })
 
   const [connecting, setConnecting] = useState(false)
   const [toggling, setToggling] = useState(-1) // index of cheat being toggled
@@ -348,14 +367,30 @@ function TrainerTab({ status, setStatus }) {
               Trainer Directory
             </button>
           </div>
+
+          <div className="gallery-toolbar">
+            <select className="gallery-sort-select" value={sortBy} onChange={e => setSort(e.target.value)}>
+              <option value="name-asc">Name A → Z</option>
+              <option value="name-desc">Name Z → A</option>
+            </select>
+            <div className="gallery-view-toggle">
+              <button className={`view-btn${viewMode === 'grid' ? ' active' : ''}`} onClick={() => setView('grid')} title="Grid view">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              </button>
+              <button className={`view-btn${viewMode === 'list' ? ' active' : ''}`} onClick={() => setView('list')} title="List view">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              </button>
+            </div>
+          </div>
+
           {loadingList && <div className="empty"><Spinner /></div>}
           {listErr && <div className="panel-error">{listErr}</div>}
           {!loadingList && list.length === 0 && !listErr && (
             <div className="empty">No trainers found</div>
           )}
-          <div className="gallery-grid">
-            {list.map(t => (
-              <GameTile key={t.Filename} trainer={t} onSelect={() => selectTrainer(t.Filename)} />
+          <div className={viewMode === 'list' ? 'gallery-list' : 'gallery-grid'}>
+            {sortedList.map(t => (
+              <GameTile key={t.Filename} trainer={t} onSelect={() => selectTrainer(t.Filename)} viewMode={viewMode} />
             ))}
           </div>
         </div>
