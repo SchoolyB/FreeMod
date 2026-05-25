@@ -768,6 +768,16 @@ html, body, #root {
   border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
+.action-error {
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 6px;
+  color: #ff8888;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
 /* Connect buttons */
 .connect-btn {
   background: var(--accent-purple);
@@ -1098,6 +1108,30 @@ html, body, #root {
   color: #ff8888;
   border-bottom: 1px solid rgba(239, 68, 68, 0.2);
 }
+
+.dev-dead-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: rgba(234, 179, 8, 0.08);
+  border-bottom: 1px solid rgba(234, 179, 8, 0.25);
+  color: #fbbf24;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.dev-dead-dismiss {
+  background: transparent;
+  border: none;
+  color: #fbbf24;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  opacity: 0.7;
+}
+
+.dev-dead-dismiss:hover { opacity: 1; }
 
 .dev-toolbar {
   display: flex;

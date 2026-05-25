@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/freemod/freemod/core/memory"
@@ -95,6 +96,7 @@ type App struct {
 	// dev-mode scanner state
 	devMu              sync.Mutex
 	devPID             int
+	devWatchCancel     context.CancelFunc
 	devScanAddrs       []uintptr // int32 addresses (single-type) or int32 addresses (all mode)
 	devScanType        string    // "int32", "float32", or "all"
 	devScanPrevVals    []int32   // int32 prev values
@@ -347,6 +349,9 @@ func (a *App) ConnectTrainer() (TrainerStatus, error) {
 		a.cheatStates[i].addr = addrs[i]
 	}
 	a.trainerMu.Unlock()
+
+	// Always start the watcher so death detection works regardless of AutoConnect.
+	a.startWatcher(tf.Exe)
 
 	return a.buildStatus(), nil
 }
@@ -619,6 +624,10 @@ func (a *App) AttachProcess(pid int) error {
 		return err
 	}
 	a.devMu.Lock()
+	if a.devWatchCancel != nil {
+		a.devWatchCancel()
+		a.devWatchCancel = nil
+	}
 	a.devPID = pid
 	a.devScanAddrs = nil
 	a.devScanAddrsF32 = nil
@@ -629,7 +638,49 @@ func (a *App) AttachProcess(pid int) error {
 	a.devScanPrevValsI64 = nil
 	a.devScanPrevValsF64 = nil
 	a.devMu.Unlock()
+	a.startDevWatcher(pid)
 	return nil
+}
+
+// startDevWatcher polls the attached dev-mode PID every 2 s. When the process
+// exits (ESRCH) it clears devPID and emits a "dev:process-died" event so the
+// frontend can update its UI without waiting for the next user action.
+func (a *App) startDevWatcher(pid int) {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.devMu.Lock()
+	a.devWatchCancel = cancel
+	a.devMu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := syscall.Kill(pid, 0); err == syscall.ESRCH {
+					a.devMu.Lock()
+					if a.devPID == pid {
+						a.devPID = 0
+						a.devScanAddrs = nil
+						a.devScanAddrsF32 = nil
+						a.devScanAddrsI64 = nil
+						a.devScanAddrsF64 = nil
+						a.devScanPrevVals = nil
+						a.devScanPrevValsF = nil
+						a.devScanPrevValsI64 = nil
+						a.devScanPrevValsF64 = nil
+						a.devWatchCancel = nil
+					}
+					a.devMu.Unlock()
+					runtime.EventsEmit(a.ctx, "dev:process-died", pid)
+					cancel()
+					return
+				}
+			}
+		}
+	}()
 }
 
 func (a *App) AttachedPID() int {
@@ -1037,8 +1088,8 @@ func (a *App) watchTick(exe string) {
 	}
 
 	switch {
-	case found != 0 && found != currentPID:
-		// Game appeared or restarted — connect.
+	case found != 0 && found != currentPID && a.settings.AutoConnect:
+		// Game appeared or restarted — connect (only when auto-connect is enabled).
 		base, err := scanner.FindModuleBase(a.mem, found)
 		if err != nil {
 			return
@@ -1071,10 +1122,15 @@ func (a *App) watchTick(exe string) {
 		a.stopAllFreezesLocked()
 		a.activePID = 0
 		a.activeModBase = 0
+		gameName := ""
+		if a.activeTrainer != nil {
+			gameName = a.activeTrainer.Game
+		}
 		for i := range a.cheatStates {
 			a.cheatStates[i].enabled = false
 		}
 		a.trainerMu.Unlock()
+		runtime.EventsEmit(a.ctx, "trainer:process-died", gameName)
 	}
 }
 

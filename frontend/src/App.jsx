@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, Component } from 'react'
+import { EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
 import {
   ListTrainers,
   LoadTrainer,
@@ -233,6 +234,7 @@ function TrainerTab({ status, setStatus }) {
   const [connecting, setConnecting] = useState(false)
   const [toggling, setToggling] = useState(-1) // index of cheat being toggled
   const [actionErr, setActionErr] = useState(null)
+  const [deadBanner, setDeadBanner] = useState(null) // game name that exited
 
   const [posterArt, setPosterArt] = useState(null)
 
@@ -256,6 +258,18 @@ function TrainerTab({ status, setStatus }) {
     }, 1000)
     return () => clearInterval(id)
   }, [!!status])
+
+  // Listen for game process exit from backend watcher.
+  useEffect(() => {
+    const handler = (name) => setDeadBanner(name || 'Game')
+    EventsOn('trainer:process-died', handler)
+    return () => EventsOff('trainer:process-died')
+  }, [])
+
+  // Clear the banner when the game reconnects.
+  useEffect(() => {
+    if (status?.Connected) setDeadBanner(null)
+  }, [status?.Connected])
 
   // Load cover art when selected trainer changes
   useEffect(() => {
@@ -393,6 +407,13 @@ function TrainerTab({ status, setStatus }) {
                   )}
                 </div>
               </div>
+
+              {deadBanner && (
+                <div className="dev-dead-banner" style={{ borderRadius: 8, marginBottom: 8 }}>
+                  <span>⚠ <strong>{deadBanner}</strong> exited</span>
+                  <button className="dev-dead-dismiss" onClick={() => setDeadBanner(null)}>✕</button>
+                </div>
+              )}
 
               {actionErr && <div className="action-error">{actionErr}</div>}
 
@@ -636,6 +657,8 @@ function DevModeTab({ warnSysProcs, onAddToExporter, onReset }) {
   const [statusMsg, setStatusMsg] = useState(null)
   const showStatus = (text, isError = false) => setStatusMsg({ text, isError })
 
+  const [deadBanner, setDeadBanner] = useState(null) // name of the process that died
+
   const refreshProcs = useCallback(async () => {
     setLoadingProcs(true)
     setProcErr(null)
@@ -663,6 +686,20 @@ function DevModeTab({ warnSysProcs, onAddToExporter, onReset }) {
     showStatus('Detached.')
   }, [])
 
+  // Listen for backend "dev:process-died" event (process exited while attached).
+  useEffect(() => {
+    const handler = () => {
+      // Capture the name before detach clears it.
+      setAttachedName(prev => {
+        setDeadBanner(prev || 'Process')
+        return prev
+      })
+      detach()
+    }
+    EventsOn('dev:process-died', handler)
+    return () => EventsOff('dev:process-died')
+  }, [detach])
+
   const doAttach = useCallback(async (pid, name) => {
     await StopTestFreeze().catch(() => {})
     setFreezeActive(false)
@@ -670,6 +707,7 @@ function DevModeTab({ warnSysProcs, onAddToExporter, onReset }) {
       await AttachProcess(pid)
       setAttachedPID(pid)
       setAttachedName(name)
+      setDeadBanner(null)
       setAddresses([])
       setScanHistory([])
       setSelectedAddr(null)
@@ -984,6 +1022,13 @@ function DevModeTab({ warnSysProcs, onAddToExporter, onReset }) {
               <button className="sys-warn-confirm danger" onClick={() => { doAttach(sysWarnPending.pid, sysWarnPending.name); setSysWarnPending(null) }}>Attach Anyway</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {deadBanner && (
+        <div className="dev-dead-banner">
+          <span>⚠ <strong>{deadBanner}</strong> exited — scan results are stale</span>
+          <button className="dev-dead-dismiss" onClick={() => setDeadBanner(null)}>✕</button>
         </div>
       )}
 
