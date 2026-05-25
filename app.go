@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/freemod/freemod/core/memory"
@@ -659,7 +658,7 @@ func (a *App) startDevWatcher(pid int) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := syscall.Kill(pid, 0); err == syscall.ESRCH {
+				if !process.ProcessExists(pid) {
 					a.devMu.Lock()
 					if a.devPID == pid {
 						a.devPID = 0
