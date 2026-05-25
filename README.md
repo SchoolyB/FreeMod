@@ -69,7 +69,18 @@ make dev
 
 ### Adding trainers
 
-Drop a `.json` trainer file into your trainer folder. Click the 📂 button in the app to open it in Finder.
+There are two ways to load a trainer depending on whether you're testing locally or contributing it to the project.
+
+**For local testing only** — drop the `.json` file into your personal trainer folder. Click the 📂 button in the app to open it in Finder. Files here are never committed.
+
+**To ship a trainer with the app** — place the `.json` (and optional cover art) in the `trainers/` directory of the repo. Trainer files are gitignored by default to avoid accidental commits, so you must explicitly add it:
+
+```bash
+git add -f trainers/mygame.json
+git add -f trainers/mygame.png  # if you have cover art
+```
+
+Once committed, the trainer is embedded directly into the FreeMod binary and appears for all users without any file management on their end.
 
 Trainer format:
 
@@ -126,7 +137,7 @@ make dev    # terminal 2 — live reload
 
 In the GUI, select **FreeMod Demo Target** — it connects on the spot — and toggle **Infinite Health**; terminal 1 flips to `health = 9999`.
 
-> `freemod-demo` prints a `Static offset` on startup. `make build` patches this into `trainers/target.json` automatically, so the demo always works after a fresh build.
+> `freemod-demo` prints a `Static offset` on startup. `make build` patches this into `trainers/target.json` automatically, so the demo always works after a fresh build. `target.json` is gitignored — it is regenerated locally and never committed.
 
 ---
 

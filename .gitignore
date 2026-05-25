@@ -9,8 +9,10 @@ build/darwin/icon.icns
 /target
 /freemod-demo
 
-# Auto-patched by make build — offsets are machine-specific
-trainers/target.json
+# Trainer JSON files are ignored by default — drop files here freely during
+# development without worrying about accidentally committing them.
+# To ship a trainer with the app, force-add it: git add -f trainers/mygame.json
+trainers/*.json
 
 # macOS
 .DS_Store

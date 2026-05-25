@@ -316,9 +316,9 @@ function TrainerTab({ status, setStatus }) {
 
   const toggleCheat = useCallback(async (idx, enable, userValue = 0, userTrigger = 0) => {
     setToggling(idx)
-    setActionErr(null)
     try {
       const s = await ToggleCheat(idx, enable, userValue, userTrigger)
+      setActionErr(null)
       setStatus(s)
     } catch (e) {
       setActionErr(String(e))
