@@ -1064,7 +1064,13 @@ function DevModeTab({ warnSysProcs, onAddToExporter, onReset }) {
               <span className="pulse-dot" />
               <span className="dev-attached-label">{attachedName} · PID {attachedPID}</span>
               {moduleBase && <span className="dev-base-tag">{moduleBase}</span>}
-              <button className="dev-detach-btn" onClick={detach} title="Detach process">✕</button>
+              <button
+                className={`dev-detach-btn${scanHistory.length > 0 ? ' has-scan' : ''}`}
+                onClick={detach}
+                title={scanHistory.length > 0 ? 'Detach — current scan results will be lost' : 'Detach process'}
+              >
+                Detach
+              </button>
             </div>
           )}
           {procErr && <div className="panel-error">{procErr}</div>}
